@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Élèves{% endblock %}
+{% block page_title %}Élèves{% endblock %}
+{% block page_subtitle %}Liste des élèves inscrits{% endblock %}
+
+{% block content %}
+<div x-data="{ viewMode: 'table' }">
+
+  <!-- Toolbar -->
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+    <form method="get" class="flex flex-wrap items-center gap-3">
+      <!-- Search -->
+      <div class="relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+        </svg>
+        <input type="text" name="q" value="{{ q }}" placeholder="Nom, prénom, matricule…"
+               class="input pl-10 pr-4 w-64"
+               hx-get="{% url 'eleves_list' %}" hx-target="#eleves-table" hx-trigger="keyup changed delay:400ms" hx-include="[name='classe']"/>
+      </div>
+
+      <!-- Classe filter -->
+      <select name="classe" class="input w-44"
+              hx-get="{% url 'eleves_list' %}" hx-target="#eleves-table" hx-trigger="change" hx-include="[name='q']">
+        <option value="">Toutes les classes</option>
+        {% for cls in classes %}
+        <option value="{{ cls.id }}" {% if classe_id == cls.id|stringformat:"s" %}selected{% endif %}>{{ cls.nom }}</option>
+        {% endfor %}
+      </select>
+
+      <button type="submit" class="btn-secondary">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"/>
+        </svg>
+        Filtrer
+      </button>
+    </form>
+
+    <div class="flex items-center gap-2">
+      <!-- View toggle -->
+      <div class="flex bg-slate-100 p-0.5 rounded-xl">
+        <button @click="viewMode = 'table'"
+                :class="viewMode === 'table' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'"
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M13.125 12h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125M20.625 12c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5M12 14.625v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 14.625c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m0 1.5v-1.5m0 0c0-.621.504-1.125 1.125-1.125m0 0h7.5"/>
+          </svg>
+        </button>
+        <button @click="viewMode = 'grid'"
+                :class="viewMode === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'"
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Count badge -->
+  <div class="flex items-center gap-2 mb-4">
+    <span class="badge bg-indigo-50 text-indigo-700">{{ inscriptions|length }} élève(s)</span>
+    {% if q %}<span class="badge bg-slate-100 text-slate-600">Recherche : "{{ q }}"</span>{% endif %}
+    {% if classe_id and classes %}
+      {% for cls in classes %}{% if cls.id|stringformat:"s" == classe_id %}
+      <span class="badge bg-sky-50 text-sky-700">Classe : {{ cls.nom }}</span>
+      {% endif %}{% endfor %}
+    {% endif %}
+  </div>
+
+  <!-- TABLE VIEW -->
+  <div id="eleves-table" x-show="viewMode === 'table'" class="card p-0 overflow-hidden">
+    {% if inscriptions %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100">
+          <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Élève</th>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Matricule</th>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Classe</th>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Niveau</th>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Contact</th>
+          <th class="px-6 py-4"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50">
+        {% for inscription in inscriptions %}
+        <tr class="table-row group">
+          <!-- Avatar + Name -->
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                   style="background: linear-gradient(135deg, hsl({{ inscription.eleve.nom|length|add:200 }}, 60%, 55%), hsl({{ inscription.eleve.prenom|length|add:220 }}, 60%, 45%));">
+                {{ inscription.eleve.prenom.0|upper }}{{ inscription.eleve.nom.0|upper }}
+              </div>
+              <div>
+                <p class="font-semibold text-slate-900">{{ inscription.eleve.prenom }} {{ inscription.eleve.nom }}</p>
+                <p class="text-xs text-slate-400">{% if inscription.eleve.date_naissance %}Né(e) le {{ inscription.eleve.date_naissance|date:"d/m/Y" }}{% endif %}</p>
+              </div>
+            </div>
+          </td>
+
+          <!-- Matricule -->
+          <td class="px-6 py-4">
+            <span class="font-mono text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg">{{ inscription.eleve.matricule }}</span>
+          </td>
+
+          <!-- Classe -->
+          <td class="px-6 py-4">
+            <span class="badge bg-indigo-50 text-indigo-700">{{ inscription.classe.nom }}</span>
+          </td>
+
+          <!-- Niveau -->
+          <td class="px-6 py-4 hidden md:table-cell">
+            <span class="text-slate-600 text-sm">{{ inscription.classe.niveau.nom|default:"—" }}</span>
+          </td>
+
+          <!-- Contact -->
+          <td class="px-6 py-4 hidden lg:table-cell">
+            <span class="text-slate-500 text-xs">{{ inscription.eleve.telephone|default:"—" }}</span>
+          </td>
+
+          <!-- Actions -->
+          <td class="px-6 py-4 text-right">
+            <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Voir le profil">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.637 0-8.572-3.007-9.963-7.178z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-20">
+      <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+        </svg>
+      </div>
+      <h3 class="text-slate-700 font-semibold mb-1">Aucun élève trouvé</h3>
+      <p class="text-slate-400 text-sm">Modifiez vos critères de recherche ou vérifiez l'année scolaire active.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- GRID VIEW -->
+  <div x-show="viewMode === 'grid'" x-cloak>
+    {% if inscriptions %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {% for inscription in inscriptions %}
+      <div class="card hover:shadow-card-hover transition-all duration-200 cursor-pointer group">
+        <div class="flex flex-col items-center text-center">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-lg font-bold mb-3"
+               style="background: linear-gradient(135deg, hsl({{ inscription.eleve.nom|length|add:200 }}, 60%, 55%), hsl({{ inscription.eleve.prenom|length|add:220 }}, 60%, 45%));">
+            {{ inscription.eleve.prenom.0|upper }}{{ inscription.eleve.nom.0|upper }}
+          </div>
+          <p class="font-semibold text-slate-900">{{ inscription.eleve.prenom }} {{ inscription.eleve.nom }}</p>
+          <span class="font-mono text-xs text-slate-400 mt-1">{{ inscription.eleve.matricule }}</span>
+          <span class="badge bg-indigo-50 text-indigo-700 mt-3">{{ inscription.classe.nom }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card text-center py-16">
+      <p class="text-slate-400">Aucun élève trouvé.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

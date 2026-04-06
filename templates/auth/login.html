@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Connexion — Gestion Scolaire</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#6366f1', dark: '#4f46e5', light: '#818cf8' }
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .gradient-bg {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    }
+    .glass {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .input-field {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      background: rgba(255,255,255,0.1);
+      border-color: #6366f1;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.25);
+    }
+    .input-field::placeholder { color: rgba(255,255,255,0.35); }
+    .btn-login {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      transition: all 0.2s;
+    }
+    .btn-login:hover {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 25px rgba(99,102,241,0.4);
+    }
+    .btn-login:active { transform: translateY(0); }
+    .floating-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.15;
+      pointer-events: none;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+    .logo-icon { animation: float 4s ease-in-out infinite; }
+  </style>
+</head>
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+
+  <!-- Ambient orbs -->
+  <div class="floating-orb w-96 h-96 bg-indigo-500 -top-20 -left-20"></div>
+  <div class="floating-orb w-80 h-80 bg-purple-500 bottom-0 right-0"></div>
+  <div class="floating-orb w-64 h-64 bg-blue-500 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+
+  <div class="w-full max-w-md relative z-10" x-data="{ showPwd: false, loading: false }">
+
+    <!-- Logo & Brand -->
+    <div class="text-center mb-8">
+      <div class="logo-icon inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
+           style="background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 8px 32px rgba(99,102,241,0.5);">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-white tracking-tight">Gestion Scolaire</h1>
+      <p class="text-sm text-slate-400 mt-1">Plateforme de gestion multi-établissements</p>
+    </div>
+
+    <!-- Card -->
+    <div class="glass rounded-2xl p-8 shadow-2xl">
+      <h2 class="text-lg font-semibold text-white mb-1">Bon retour 👋</h2>
+      <p class="text-sm text-slate-400 mb-6">Connectez-vous à votre espace</p>
+
+      <!-- Alerts -->
+      {% if messages %}
+        {% for message in messages %}
+        <div class="flex items-center gap-3 mb-5 px-4 py-3 rounded-xl text-sm
+          {% if message.tags == 'error' %}bg-red-500/15 border border-red-500/30 text-red-300
+          {% else %}bg-green-500/15 border border-green-500/30 text-green-300{% endif %}"
+          x-data x-init="setTimeout(() => $el.remove(), 5000)">
+          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          {{ message }}
+        </div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" @submit="loading = true">
+        {% csrf_token %}
+
+        <!-- Email -->
+        <div class="mb-4">
+          <label class="block text-xs font-medium text-slate-300 mb-2">Adresse email</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
+              </svg>
+            </div>
+            <input type="email" name="email" required placeholder="vous@exemple.sn"
+              class="input-field w-full pl-10 pr-4 py-3 rounded-xl text-sm"
+              value="{{ request.POST.email|default:'' }}"/>
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="mb-6">
+          <label class="block text-xs font-medium text-slate-300 mb-2">Mot de passe</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+            </div>
+            <input :type="showPwd ? 'text' : 'password'" name="password" required placeholder="••••••••"
+              class="input-field w-full pl-10 pr-11 py-3 rounded-xl text-sm"/>
+            <button type="button" @click="showPwd = !showPwd"
+              class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors">
+              <svg x-show="!showPwd" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+              <svg x-show="showPwd" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit"
+          class="btn-login w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2"
+          :class="loading ? 'opacity-75 cursor-not-allowed' : ''">
+          <svg x-show="loading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <span x-text="loading ? 'Connexion...' : 'Se connecter'">Se connecter</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <p class="text-center text-xs text-slate-600 mt-6">
+      © 2025 Gestion Scolaire &mdash; Tous droits réservés
+    </p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+{% block page_subtitle %}
+  {% if annee %}Année scolaire {{ annee.libelle }}{% else %}Bienvenue sur votre espace{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+
+  <!-- Élèves actifs -->
+  <div class="card group hover:shadow-card-hover transition-all duration-200">
+    <div class="flex items-start justify-between mb-4">
+      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
+           style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+        </svg>
+      </div>
+      <span class="badge bg-indigo-50 text-indigo-700">Actifs</span>
+    </div>
+    <p class="text-3xl font-bold text-slate-900 mb-1">{{ nb_eleves|default:"—" }}</p>
+    <p class="text-sm text-slate-500 font-medium">Élèves inscrits</p>
+    <a href="{% url 'eleves_list' %}" class="mt-4 flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">
+      Voir la liste
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+      </svg>
+    </a>
+  </div>
+
+  <!-- Classes -->
+  <div class="card group hover:shadow-card-hover transition-all duration-200">
+    <div class="flex items-start justify-between mb-4">
+      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
+           style="background: linear-gradient(135deg, #0ea5e9, #06b6d4);">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/>
+        </svg>
+      </div>
+      <span class="badge bg-sky-50 text-sky-700">Ouvertes</span>
+    </div>
+    <p class="text-3xl font-bold text-slate-900 mb-1">{{ nb_classes|default:"—" }}</p>
+    <p class="text-sm text-slate-500 font-medium">Classes actives</p>
+    <div class="mt-4 h-1 bg-slate-100 rounded-full overflow-hidden">
+      <div class="h-full bg-sky-400 rounded-full" style="width: 70%"></div>
+    </div>
+  </div>
+
+  <!-- Encaissé aujourd'hui -->
+  <div class="card group hover:shadow-card-hover transition-all duration-200">
+    <div class="flex items-start justify-between mb-4">
+      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
+           style="background: linear-gradient(135deg, #10b981, #059669);">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+        </svg>
+      </div>
+      <span class="badge bg-emerald-50 text-emerald-700">Aujourd'hui</span>
+    </div>
+    <p class="text-3xl font-bold text-slate-900 mb-1">
+      {{ encaisse_aujourd_hui|default:"0"|floatformat:"0" }}
+      <span class="text-base font-medium text-slate-400">FCFA</span>
+    </p>
+    <p class="text-sm text-slate-500 font-medium">Encaissé ce jour</p>
+    <a href="{% url 'finances_index' %}" class="mt-4 flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
+      Voir finances
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+      </svg>
+    </a>
+  </div>
+
+  <!-- Alertes -->
+  <div class="card group hover:shadow-card-hover transition-all duration-200">
+    <div class="flex items-start justify-between mb-4">
+      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
+           style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+        </svg>
+      </div>
+      {% if nb_modifs_en_attente or nb_bulletins_a_valider %}
+      <span class="badge bg-amber-50 text-amber-700">Action requise</span>
+      {% else %}
+      <span class="badge bg-slate-50 text-slate-500">Aucune</span>
+      {% endif %}
+    </div>
+    <p class="text-3xl font-bold text-slate-900 mb-1">
+      {{ nb_modifs_en_attente|add:nb_bulletins_a_valider|default:"0" }}
+    </p>
+    <p class="text-sm text-slate-500 font-medium">Éléments en attente</p>
+    <div class="mt-4 flex gap-2 flex-wrap">
+      {% if nb_modifs_en_attente %}
+      <span class="badge bg-amber-50 text-amber-700">{{ nb_modifs_en_attente }} note(s)</span>
+      {% endif %}
+      {% if nb_bulletins_a_valider %}
+      <span class="badge bg-rose-50 text-rose-700">{{ nb_bulletins_a_valider }} bulletin(s)</span>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Content Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+  <!-- Chart -->
+  <div class="xl:col-span-2 card">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h3 class="text-slate-900 font-semibold text-base">Aperçu de l'activité</h3>
+        <p class="text-slate-400 text-xs mt-0.5">Paiements des 6 derniers mois</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn-secondary text-xs py-1.5 px-3">Mensuel</button>
+      </div>
+    </div>
+    <div class="relative h-56">
+      <canvas id="revenueChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="card">
+    <h3 class="text-slate-900 font-semibold text-base mb-4">Actions rapides</h3>
+    <div class="space-y-2.5">
+      <a href="{% url 'eleves_list' %}"
+         class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/50 transition-all group">
+        <div class="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-brand-100 transition-colors">
+          <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-slate-800">Gérer les élèves</p>
+          <p class="text-xs text-slate-400">Inscriptions & classes</p>
+        </div>
+        <svg class="w-4 h-4 text-slate-300 group-hover:text-brand-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+        </svg>
+      </a>
+
+      <a href="{% url 'notes_list' %}"
+         class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-amber-200 hover:bg-amber-50/50 transition-all group">
+        <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
+          <svg class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-slate-800">Modifications notes</p>
+          <p class="text-xs text-slate-400">
+            {% if nb_modifs_en_attente %}
+            <span class="text-amber-600 font-semibold">{{ nb_modifs_en_attente }} en attente</span>
+            {% else %}Aucune en attente{% endif %}
+          </p>
+        </div>
+        <svg class="w-4 h-4 text-slate-300 group-hover:text-amber-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+        </svg>
+      </a>
+
+      <a href="{% url 'bulletins_list' %}"
+         class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-sky-200 hover:bg-sky-50/50 transition-all group">
+        <div class="w-9 h-9 rounded-xl bg-sky-50 flex items-center justify-center">
+          <svg class="w-4 h-4 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-slate-800">Bulletins</p>
+          <p class="text-xs text-slate-400">
+            {% if nb_bulletins_a_valider %}
+            <span class="text-sky-600 font-semibold">{{ nb_bulletins_a_valider }} à valider</span>
+            {% else %}Tout est à jour{% endif %}
+          </p>
+        </div>
+        <svg class="w-4 h-4 text-slate-300 group-hover:text-sky-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+        </svg>
+      </a>
+
+      <a href="{% url 'finances_index' %}"
+         class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/50 transition-all group">
+        <div class="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
+          <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-slate-800">Finances</p>
+          <p class="text-xs text-slate-400">Paiements & caisse</p>
+        </div>
+        <svg class="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const ctx = document.getElementById('revenueChart');
+  if (ctx) {
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Nov', 'Déc', 'Jan', 'Fév', 'Mar', 'Avr'],
+        datasets: [{
+          label: 'Paiements (FCFA)',
+          data: [0, 0, 0, 0, 0, {{ encaisse_aujourd_hui|default:0 }}],
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          borderColor: '#6366f1',
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            titleColor: '#94a3b8',
+            bodyColor: '#f1f5f9',
+            cornerRadius: 10,
+            padding: 12,
+            callbacks: {
+              label: (ctx) => `${ctx.parsed.y.toLocaleString('fr-SN')} FCFA`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#94a3b8', font: { size: 12, family: 'Inter' } }
+          },
+          y: {
+            grid: { color: '#f1f5f9' },
+            ticks: {
+              color: '#94a3b8',
+              font: { size: 12, family: 'Inter' },
+              callback: (v) => v.toLocaleString('fr-SN')
+            }
+          }
+        }
+      }
+    });
+  }
+</script>
+{% endblock %}
