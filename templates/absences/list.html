@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Absences{% endblock %}
+{% block page_title %}Absences{% endblock %}
+{% block page_subtitle %}Suivi des absences par classe{% endblock %}
+
+{% block content %}
+
+  <!-- ═══ CYCLES ═══ -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:20px;">
+    {% for item in cycles %}{% with c=item.cycle %}
+    <a href="{% url 'absences_list' %}?cycle={{ c.id }}" style="text-decoration:none;">
+      <div class="card" style="padding:13px 15px;cursor:pointer;
+        {% if selected_cycle_id == c.id|stringformat:'s' %}
+          {% if c.type_cycle == 'PRESCOLAIRE' %}border-color:rgba(16,185,129,.4);
+          {% elif c.type_cycle == 'ELEMENTAIRE' %}border-color:rgba(14,165,233,.4);
+          {% elif c.type_cycle == 'COLLEGE' %}border-color:rgba(99,102,241,.4);
+          {% elif c.type_cycle == 'LYCEE' %}border-color:rgba(245,158,11,.4);
+          {% endif %}
+        {% endif %}">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+            {% if c.type_cycle == 'PRESCOLAIRE' %}background:rgba(16,185,129,.12);
+            {% elif c.type_cycle == 'ELEMENTAIRE' %}background:rgba(14,165,233,.12);
+            {% elif c.type_cycle == 'COLLEGE' %}background:rgba(99,102,241,.12);
+            {% elif c.type_cycle == 'LYCEE' %}background:rgba(245,158,11,.12);
+            {% else %}background:rgba(255,255,255,0.05);{% endif %}">
+            <svg style="width:14px;height:14px;
+              {% if c.type_cycle == 'PRESCOLAIRE' %}color:#34d399;
+              {% elif c.type_cycle == 'ELEMENTAIRE' %}color:#38bdf8;
+              {% elif c.type_cycle == 'COLLEGE' %}color:#818cf8;
+              {% elif c.type_cycle == 'LYCEE' %}color:#fbbf24;
+              {% else %}color:#6b7280;{% endif %}"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+            </svg>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#f1f5f9;">{{ c.get_type_cycle_display }}</div>
+            <div style="font-size:10.5px;color:#4b5563;">{{ item.nb_classes }} cl.</div>
+          </div>
+        </div>
+      </div>
+    </a>
+    {% endwith %}{% endfor %}
+  </div>
+
+  {% if classes_du_cycle %}
+  <!-- ═══ CLASSES ═══ -->
+  <div style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <div style="width:3px;height:16px;border-radius:99px;background:#6366f1;"></div>
+      <span style="font-size:12.5px;font-weight:600;color:#e2e8f0;">Choisir une classe</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      {% for cl in classes_du_cycle %}
+      <a href="{% url 'absences_list' %}?cycle={{ selected_cycle_id }}&classe={{ cl.id }}" style="text-decoration:none;">
+        <div style="padding:7px 14px;border-radius:8px;border:1px solid;font-size:12px;font-weight:600;cursor:pointer;transition:all .13s;
+          {% if selected_classe_id == cl.id|stringformat:'s' %}background:rgba(99,102,241,.15);color:#818cf8;border-color:rgba(99,102,241,.3);
+          {% else %}background:rgba(255,255,255,0.04);color:#64748b;border-color:rgba(255,255,255,0.08);{% endif %}">
+          {{ cl.nom }}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if selected_classe %}
+  <!-- ═══ STATS + FILTRE DATE ═══ -->
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px;">
+    <div class="card" style="padding:16px;cursor:default;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151;margin-bottom:6px;">Total absences</div>
+      <div style="font-size:24px;font-weight:800;color:#f1f5f9;">{{ nb_total }}</div>
+    </div>
+    <div class="card" style="padding:16px;cursor:default;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151;margin-bottom:6px;">Justifiées</div>
+      <div style="font-size:24px;font-weight:800;color:#34d399;">{{ nb_justifiees }}</div>
+    </div>
+    <div class="card" style="padding:16px;cursor:default;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151;margin-bottom:6px;">Non justifiées</div>
+      <div style="font-size:24px;font-weight:800;color:#f87171;">{{ nb_non_justifiees }}</div>
+    </div>
+  </div>
+
+  <!-- Filtre date -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:3px;height:18px;border-radius:99px;background:#f59e0b;"></div>
+      <div style="font-size:13px;font-weight:600;color:#e2e8f0;">{{ selected_classe.nom }}</div>
+      {% if date_filter %}<span class="badge badge-amber">{{ date_filter }}</span>{% endif %}
+    </div>
+    <form method="get" style="display:flex;gap:8px;align-items:center;">
+      <input type="hidden" name="cycle" value="{{ selected_cycle_id }}">
+      <input type="hidden" name="classe" value="{{ selected_classe_id }}">
+      <input type="date" name="date" value="{{ date_filter }}" class="input" style="width:160px;">
+      <button type="submit" class="btn btn-secondary" style="padding:7px 12px;font-size:12px;">Filtrer</button>
+      {% if date_filter %}
+      <a href="{% url 'absences_list' %}?cycle={{ selected_cycle_id }}&classe={{ selected_classe_id }}" class="btn btn-secondary" style="padding:7px 12px;font-size:12px;">✕</a>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if absences %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Élève</th>
+          <th>Date</th>
+          <th>Statut</th>
+          <th>Motif</th>
+          <th>Enregistré par</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for absence in absences %}
+        <tr class="tr">
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:700;flex-shrink:0;">
+                {{ absence.inscription.eleve.prenom.0|upper }}{{ absence.inscription.eleve.nom.0|upper }}
+              </div>
+              <div class="cell-main">{{ absence.inscription.eleve.prenom }} {{ absence.inscription.eleve.nom }}</div>
+            </div>
+          </td>
+          <td style="font-size:12px;color:#64748b;">{{ absence.date|date:"d/m/Y" }}</td>
+          <td>
+            {% if absence.justifiee %}
+            <span class="badge badge-green">Justifiée</span>
+            {% else %}
+            <span class="badge badge-red">Non justifiée</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:#64748b;">{{ absence.motif|default:"—" }}</td>
+          <td style="font-size:12px;color:#64748b;">
+            {% if absence.enregistre_par %}{{ absence.enregistre_par.prenom }} {{ absence.enregistre_par.nom }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:56px 20px;">
+    <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+      <svg style="width:22px;height:22px;color:#374151;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+      </svg>
+    </div>
+    <div style="font-size:13px;font-weight:600;color:#4b5563;">Aucune absence enregistrée</div>
+    {% if date_filter %}<div style="font-size:12px;color:#374151;margin-top:5px;">Pour le {{ date_filter }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  {% elif not selected_cycle_id %}
+  <div class="card" style="text-align:center;padding:64px 20px;">
+    <div style="font-size:13px;font-weight:600;color:#4b5563;margin-bottom:5px;">Sélectionnez un cycle</div>
+    <div style="font-size:12px;color:#374151;">Choisissez un cycle puis une classe pour consulter les absences.</div>
+  </div>
+  {% elif selected_cycle_id and not selected_classe_id %}
+  <div class="card" style="text-align:center;padding:48px 20px;">
+    <div style="font-size:13px;font-weight:600;color:#4b5563;">Sélectionnez une classe</div>
+  </div>
+  {% endif %}
+
+{% endblock %}

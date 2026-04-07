@@ -4,16 +4,20 @@ from django.utils import timezone
 
 
 class RoleChoices(models.TextChoices):
-    SUPER_ADMIN = 'SUPER_ADMIN', 'Super Administrateur'
-    DIRIGEANT_GROUPE = 'DIRIGEANT_GROUPE', 'Dirigeant Groupe'
-    DIRECTEUR = 'DIRECTEUR', 'Directeur'
-    PREFET = 'PREFET', 'Préfet'
-    SURVEILLANT = 'SURVEILLANT', 'Surveillant'
-    PROFESSEUR = 'PROFESSEUR', 'Professeur'
-    COMPTABLE = 'COMPTABLE', 'Comptable'
-    CAISSIER = 'CAISSIER', 'Caissier'
-    PARENT = 'PARENT', 'Parent'
-    ELEVE = 'ELEVE', 'Élève'
+    # ── Niveau groupe (tous établissements) ──────────────────────────────
+    ADMIN_GROUPE       = 'ADMIN_GROUPE',       'Administrateur du Groupe'
+    PRESIDENT_GROUPE   = 'PRESIDENT_GROUPE',   'Président du Groupe'
+    TRESORIER_GROUPE   = 'TRESORIER_GROUPE',   'Trésorier du Groupe'
+    DIRIGEANT_GROUPE   = 'DIRIGEANT_GROUPE',   'Dirigeant Groupe'
+    # ── Niveau établissement ─────────────────────────────────────────────
+    DIRECTEUR          = 'DIRECTEUR',          'Directeur'
+    PREFET             = 'PREFET',             'Préfet'
+    SURVEILLANT        = 'SURVEILLANT',        'Surveillant'
+    PROFESSEUR         = 'PROFESSEUR',         'Professeur'
+    COMPTABLE          = 'COMPTABLE',          'Comptable'
+    CAISSIER           = 'CAISSIER',           'Caissier'
+    PARENT             = 'PARENT',             'Parent'
+    ELEVE              = 'ELEVE',              'Élève'
 
 
 class UserManager(BaseUserManager):
@@ -73,9 +77,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 class RoleUtilisateur(models.Model):
     """
     Association utilisateur <-> rôle <-> établissement.
-    - roles niveau groupe (SUPER_ADMIN, DIRIGEANT_GROUPE) : etablissement=None
-    - roles niveau établissement : etablissement renseigné
-    - PREFET : cycle renseigné
+    - Rôles niveau groupe (ADMIN_GROUPE, PRESIDENT_GROUPE, etc.) : etablissement=None
+    - Rôles niveau établissement (DIRECTEUR, PREFET, etc.) : etablissement renseigné
+    - PREFET : cycle renseigné en plus
     """
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='roles'

@@ -1,17 +1,70 @@
-from django.shortcuts import render, redirect
+from functools import wraps
+
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Count, Sum, Q
+from django.core.paginator import Paginator
+from django.db.models import Count, Sum, Q, Prefetch
 from django.utils import timezone
 
-from apps.accounts.models import RoleUtilisateur, RoleChoices
-from apps.etablissements.models import Etablissement, AnneeScolaire
-from apps.scolarite.models import Inscription, Eleve, Classe
-from apps.finances.models import Paiement, ClotureCaisse
+from apps.accounts.models import RoleUtilisateur, RoleChoices, User
+from apps.etablissements.models import Etablissement, AnneeScolaire, Cycle
+from apps.scolarite.models import Inscription, Eleve, Classe, StatutInscription
+from apps.finances.models import (
+    Paiement, ClotureCaisse, ModificationPaiement,
+    TypeActionPaiement, StatutDemande, StatutPaiement,
+)
 from apps.notifications.models import Notification
-from apps.notes.models import ModificationNote
+from apps.notes.models import ModificationNote, Note, PeriodeEvaluation, StatutNote
 from apps.bulletins.models import Bulletin, StatutBulletin
+from apps.matieres.models import Matiere, MatiereClasse
+from apps.vie_scolaire.models import AbsenceEleve
+
+
+# ─── DÉCORATEUR DE RÔLE ────────────────────────────────────────────────────────
+
+# Groupes de rôles — cohérents avec context_processors.py
+_ROLES_ELEVES    = {RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE,
+                    RoleChoices.DIRIGEANT_GROUPE, RoleChoices.DIRECTEUR,
+                    RoleChoices.PREFET, RoleChoices.SURVEILLANT, RoleChoices.PROFESSEUR}
+
+_ROLES_PEDAGOGIE = {RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE,
+                    RoleChoices.DIRIGEANT_GROUPE, RoleChoices.DIRECTEUR,
+                    RoleChoices.PREFET, RoleChoices.SURVEILLANT, RoleChoices.PROFESSEUR}
+
+_ROLES_FINANCES  = {RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE,
+                    RoleChoices.DIRIGEANT_GROUPE, RoleChoices.TRESORIER_GROUPE,
+                    RoleChoices.DIRECTEUR, RoleChoices.COMPTABLE, RoleChoices.CAISSIER}
+
+_ROLES_GESTION   = {RoleChoices.ADMIN_GROUPE, RoleChoices.DIRECTEUR}
+
+
+def roles_required(*allowed_roles):
+    """
+    Décorateur qui vérifie que l'utilisateur possède au moins un des rôles autorisés.
+    Les superusers (développeurs) n'ont PAS accès aux vues métier — leur périmètre
+    est limité aux pages techniques (Django Admin, paramètres).
+    Les utilisateurs refusés sont redirigés vers le dashboard avec un message d'erreur.
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('login')
+            # Superuser = technique uniquement, pas d'accès aux données métier
+            if request.user.is_superuser:
+                messages.error(request, "Accès refusé : le compte technique n'a pas accès aux données opérationnelles.")
+                return redirect('dashboard')
+            user_roles = set(
+                request.user.roles.filter(is_active=True).values_list('role', flat=True)
+            )
+            if user_roles & set(allowed_roles):
+                return view_func(request, *args, **kwargs)
+            messages.error(request, "Accès refusé : vous n'avez pas les droits nécessaires.")
+            return redirect('dashboard')
+        return _wrapped
+    return decorator
 
 
 def login_view(request):
@@ -43,6 +96,114 @@ def logout_view(request):
 @login_required
 def dashboard(request):
     user = request.user
+
+    # Superuser = développeur technique : dashboard système uniquement
+    if user.is_superuser:
+        from django.db import connection as db_conn
+        from django.conf import settings
+        from django.db.migrations.executor import MigrationExecutor
+        from apps.audit.models import JournalAudit, ActionAudit
+
+        # ── Santé DB ──────────────────────────────────────────────
+        try:
+            db_conn.ensure_connection()
+            db_ok = True
+        except Exception:
+            db_ok = False
+        db_engine = db_conn.settings_dict.get('ENGINE', '').split('.')[-1]
+        db_name = db_conn.settings_dict.get('NAME', '')
+        if hasattr(db_name, 'name'):  # Path object (SQLite)
+            db_name = str(db_name).split('/')[-1].split('\\')[-1]
+
+        # ── Migrations ────────────────────────────────────────────
+        try:
+            executor = MigrationExecutor(db_conn)
+            plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+            nb_migrations_pending = len(plan)
+            nb_migrations_applied = len(executor.loader.applied_migrations)
+        except Exception:
+            nb_migrations_pending = -1
+            nb_migrations_applied = -1
+
+        # ── Volumétrie ────────────────────────────────────────────
+        nb_etabs    = Etablissement.objects.count()
+        nb_users    = User.objects.filter(is_active=True).count()
+        nb_eleves   = Inscription.objects.filter(statut='ACTIF').count()
+        nb_notes    = Note.objects.count()
+        nb_paiements = Paiement.objects.count()
+
+        # ── Répartition des rôles ─────────────────────────────────
+        role_counts = list(
+            RoleUtilisateur.objects.filter(is_active=True)
+            .values('role').annotate(nb=Count('id')).order_by('-nb')
+        )
+
+        # ── Admins groupe existants ───────────────────────────────
+        admins_groupe = list(
+            User.objects.filter(
+                roles__role=RoleChoices.ADMIN_GROUPE, roles__is_active=True
+            ).distinct().select_related().order_by('nom')
+        )
+
+        # ── Journal d'audit (15 dernières entrées) ─────────────────
+        audit_recent = list(
+            JournalAudit.objects.select_related('utilisateur')
+            .order_by('-date_heure')[:15]
+        )
+
+        # ── Dernières connexions ──────────────────────────────────
+        derniers_logins = list(
+            JournalAudit.objects.filter(action=ActionAudit.LOGIN)
+            .select_related('utilisateur').order_by('-date_heure')[:10]
+        )
+
+        # ── Création compte ADMIN_GROUPE (POST) ───────────────────
+        create_success = request.session.pop('admin_create_success', None)
+        create_error   = request.session.pop('admin_create_error',   None)
+
+        if request.method == 'POST' and request.POST.get('action') == 'create_admin':
+            email     = request.POST.get('email', '').strip()
+            prenom    = request.POST.get('prenom', '').strip()
+            nom_field = request.POST.get('nom', '').strip()
+            telephone = request.POST.get('telephone', '').strip()
+            password  = request.POST.get('password', 'admin1234').strip() or 'admin1234'
+            if not (email and prenom and nom_field):
+                request.session['admin_create_error'] = "Email, prénom et nom sont obligatoires."
+            elif User.objects.filter(email=email).exists():
+                request.session['admin_create_error'] = f"Un compte existe déjà pour {email}."
+            else:
+                new_user = User.objects.create_user(
+                    email=email, password=password,
+                    prenom=prenom, nom=nom_field, telephone=telephone,
+                )
+                RoleUtilisateur.objects.create(
+                    user=new_user, role=RoleChoices.ADMIN_GROUPE, etablissement=None
+                )
+                request.session['admin_create_success'] = f"Compte {prenom} {nom_field} ({email}) créé."
+            return redirect('dashboard')
+
+        return render(request, 'dashboard/index.html', {
+            'is_technique':           True,
+            'debug_mode':             settings.DEBUG,
+            'db_ok':                  db_ok,
+            'db_engine':              db_engine,
+            'db_name':                db_name,
+            'nb_migrations_applied':  nb_migrations_applied,
+            'nb_migrations_pending':  nb_migrations_pending,
+            'nb_etabs':               nb_etabs,
+            'nb_users':               nb_users,
+            'nb_eleves':              nb_eleves,
+            'nb_notes':               nb_notes,
+            'nb_paiements':           nb_paiements,
+            'role_counts':            role_counts,
+            'admins_groupe':          admins_groupe,
+            'audit_recent':           audit_recent,
+            'derniers_logins':        derniers_logins,
+            'create_success':         create_success,
+            'create_error':           create_error,
+            'notifs_non_lues':        Notification.objects.filter(destinataire=user, lue=False).count(),
+        })
+
     etablissement = _get_etablissement(request)
     roles = list(user.roles.filter(is_active=True).values_list('role', flat=True))
 
@@ -50,7 +211,15 @@ def dashboard(request):
         'etablissement': etablissement,
         'roles': roles,
         'notifs_non_lues': Notification.objects.filter(destinataire=user, lue=False).count(),
+        'nb_eleves': 0,
+        'nb_classes': 0,
+        'nb_modifs_en_attente': 0,
+        'nb_bulletins_a_valider': 0,
+        'encaisse_aujourd_hui': 0,
+        'annee': None,
     }
+
+    today = timezone.localdate()
 
     if etablissement:
         annee = AnneeScolaire.objects.filter(etablissement=etablissement, is_active=True).first()
@@ -65,84 +234,405 @@ def dashboard(request):
             ).count()
 
         ctx['nb_modifs_en_attente'] = ModificationNote.objects.filter(
-            note__inscription__etablissement=etablissement,
-            statut='EN_ATTENTE'
+            note__inscription__etablissement=etablissement, statut='EN_ATTENTE'
         ).count()
 
         ctx['nb_bulletins_a_valider'] = Bulletin.objects.filter(
-            inscription__etablissement=etablissement,
-            statut=StatutBulletin.BROUILLON
+            inscription__etablissement=etablissement, statut=StatutBulletin.BROUILLON
         ).count()
 
-        today = timezone.localdate()
         ctx['encaisse_aujourd_hui'] = Paiement.objects.filter(
-            inscription__etablissement=etablissement,
+            inscription__etablissement=etablissement, date_paiement__date=today
+        ).aggregate(t=Sum('montant'))['t'] or 0
+
+    elif _can_switch_etablissement(user):
+        # ADMIN_GROUPE en vue globale : stats consolidées tous établissements
+        ctx['nb_eleves'] = Inscription.objects.filter(statut='ACTIF').count()
+        ctx['nb_classes'] = Classe.objects.filter(annee_scolaire__is_active=True).count()
+        ctx['nb_modifs_en_attente'] = ModificationNote.objects.filter(statut='EN_ATTENTE').count()
+        ctx['nb_bulletins_a_valider'] = Bulletin.objects.filter(statut=StatutBulletin.BROUILLON).count()
+        ctx['encaisse_aujourd_hui'] = Paiement.objects.filter(
             date_paiement__date=today
         ).aggregate(t=Sum('montant'))['t'] or 0
+        ctx['is_global'] = True
 
     return render(request, 'dashboard/index.html', ctx)
 
 
-@login_required
+# ─── ÉLÈVES ────────────────────────────────────────────────────────────────────
+
+@roles_required(*_ROLES_ELEVES)
 def eleves_list(request):
     etablissement = _get_etablissement(request)
-    annee = AnneeScolaire.objects.filter(etablissement=etablissement, is_active=True).first() if etablissement else None
+    annee = AnneeScolaire.objects.filter(
+        etablissement=etablissement, is_active=True
+    ).first() if etablissement else None
 
+    selected_cycle_id = request.GET.get('cycle', '')
+    selected_classe_id = request.GET.get('classe', '')
     q = request.GET.get('q', '')
-    classe_id = request.GET.get('classe', '')
 
-    inscriptions = Inscription.objects.select_related(
-        'eleve', 'classe', 'classe__niveau'
-    ).filter(statut='ACTIF')
+    # Niveau 1 : cycles avec comptage
+    cycles = []
+    if etablissement and annee:
+        for cycle in Cycle.objects.filter(etablissement=etablissement, is_active=True).order_by('type_cycle'):
+            nb = Inscription.objects.filter(
+                etablissement=etablissement, annee_scolaire=annee,
+                statut='ACTIF', classe__niveau__cycle=cycle
+            ).count()
+            nb_classes = Classe.objects.filter(
+                etablissement=etablissement, annee_scolaire=annee, niveau__cycle=cycle
+            ).count()
+            if nb_classes > 0:
+                cycles.append({'cycle': cycle, 'nb_eleves': nb, 'nb_classes': nb_classes})
 
-    if etablissement:
-        inscriptions = inscriptions.filter(etablissement=etablissement)
-    if annee:
-        inscriptions = inscriptions.filter(annee_scolaire=annee)
-    if q:
-        inscriptions = inscriptions.filter(
-            Q(eleve__nom__icontains=q) | Q(eleve__prenom__icontains=q) |
-            Q(eleve__matricule__icontains=q)
+    # Niveau 2 : classes du cycle sélectionné
+    classes_du_cycle = []
+    if selected_cycle_id and etablissement and annee:
+        classes_du_cycle = list(
+            Classe.objects.filter(
+                etablissement=etablissement,
+                annee_scolaire=annee,
+                niveau__cycle_id=selected_cycle_id
+            ).select_related('niveau').annotate(
+                nb_inscrits=Count('inscriptions', filter=Q(inscriptions__statut='ACTIF'))
+            ).order_by('niveau__ordre', 'nom')
         )
-    if classe_id:
-        inscriptions = inscriptions.filter(classe_id=classe_id)
 
-    classes = Classe.objects.filter(etablissement=etablissement, annee_scolaire=annee) if etablissement and annee else []
+    # Niveau 3 : élèves de la classe sélectionnée
+    page_obj = None
+    selected_classe = None
+    if selected_classe_id and etablissement:
+        try:
+            selected_classe = Classe.objects.select_related(
+                'niveau', 'niveau__cycle'
+            ).get(pk=selected_classe_id, etablissement=etablissement)
+            qs = Inscription.objects.select_related(
+                'eleve', 'classe', 'classe__niveau'
+            ).filter(statut='ACTIF', classe_id=selected_classe_id)
+            if q:
+                qs = qs.filter(
+                    Q(eleve__nom__icontains=q) |
+                    Q(eleve__prenom__icontains=q) |
+                    Q(eleve__matricule__icontains=q)
+                )
+            qs = qs.order_by('eleve__nom', 'eleve__prenom')
+            paginator = Paginator(qs, 15)
+            page_obj = paginator.get_page(request.GET.get('page', 1))
+        except Classe.DoesNotExist:
+            pass
 
-    return render(request, 'eleves/list.html', {
-        'inscriptions': inscriptions.order_by('eleve__nom', 'eleve__prenom'),
-        'classes': classes,
+    is_partial = request.headers.get('HX-Request') or request.GET.get('partial')
+    ctx = {
+        'cycles': cycles,
+        'classes_du_cycle': classes_du_cycle,
+        'page_obj': page_obj,
+        'selected_classe': selected_classe,
+        'selected_cycle_id': selected_cycle_id,
+        'selected_classe_id': selected_classe_id,
         'q': q,
-        'classe_id': classe_id,
+        'annee': annee,
+        'etablissement': etablissement,
+        'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
+    }
+
+    if is_partial:
+        return render(request, 'eleves/_table.html', ctx)
+    return render(request, 'eleves/list.html', ctx)
+
+
+@roles_required(*_ROLES_ELEVES)
+def eleve_detail(request, eleve_id):
+    etablissement = _get_etablissement(request)
+    annee = AnneeScolaire.objects.filter(
+        etablissement=etablissement, is_active=True
+    ).first() if etablissement else None
+
+    eleve = get_object_or_404(Eleve, pk=eleve_id)
+    inscription = Inscription.objects.select_related(
+        'classe', 'classe__niveau', 'classe__niveau__cycle', 'annee_scolaire'
+    ).filter(eleve=eleve).order_by('-annee_scolaire__date_debut').first()
+
+    notes = Note.objects.select_related(
+        'matiere_classe__matiere', 'periode'
+    ).filter(inscription__eleve=eleve).order_by('periode__numero', 'matiere_classe__matiere__nom') if inscription else []
+
+    return render(request, 'eleves/detail.html', {
+        'eleve': eleve,
+        'inscription': inscription,
+        'notes': notes,
         'etablissement': etablissement,
         'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
     })
 
 
-@login_required
+# ─── NOTES ─────────────────────────────────────────────────────────────────────
+
+@roles_required(*_ROLES_PEDAGOGIE)
 def notes_list(request):
     etablissement = _get_etablissement(request)
-    modifs_en_attente = ModificationNote.objects.filter(
-        note__inscription__etablissement=etablissement,
-        statut='EN_ATTENTE'
+    annee = AnneeScolaire.objects.filter(
+        etablissement=etablissement, is_active=True
+    ).first() if etablissement else None
+
+    active_tab = request.GET.get('tab', 'saisie')
+    selected_cycle_id = request.GET.get('cycle', '')
+    selected_classe_id = request.GET.get('classe', '')
+    selected_mc_id = request.GET.get('mc', '')
+    selected_periode_id = request.GET.get('periode', '')
+
+    # Détecter si l'utilisateur est un simple PROFESSEUR (sans rôle admin/directeur)
+    user_roles = set(request.user.roles.filter(is_active=True).values_list('role', flat=True))
+    _roles_superieurs = {RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE,
+                         RoleChoices.DIRIGEANT_GROUPE, RoleChoices.DIRECTEUR,
+                         RoleChoices.PREFET, RoleChoices.SURVEILLANT}
+    is_simple_prof = (
+        not request.user.is_superuser
+        and RoleChoices.PROFESSEUR in user_roles
+        and not (user_roles & _roles_superieurs)
+    )
+
+    # Modifications en attente
+    # Un simple professeur ne voit que ses propres demandes
+    modifs_qs = ModificationNote.objects.filter(
+        note__inscription__etablissement=etablissement, statut='EN_ATTENTE'
     ).select_related(
-        'note__inscription__eleve',
-        'note__matiere_classe__matiere',
-        'note__periode',
-        'modifie_par'
-    ).order_by('-date_modification') if etablissement else []
+        'note__inscription__eleve', 'note__matiere_classe__matiere',
+        'note__periode', 'modifie_par'
+    ) if etablissement else ModificationNote.objects.none()
+    if is_simple_prof:
+        modifs_qs = modifs_qs.filter(modifie_par=request.user)
+    modifs_en_attente = modifs_qs.order_by('-date_modification')
+    nb_modifs = modifs_en_attente.count()
+
+    # Classes assignées au professeur (pour le filtrage)
+    prof_classes_ids = set()
+    if is_simple_prof and etablissement and annee:
+        prof_classes_ids = set(
+            MatiereClasse.objects.filter(
+                professeur=request.user,
+                classe__etablissement=etablissement,
+                classe__annee_scolaire=annee,
+                is_active=True
+            ).values_list('classe_id', flat=True)
+        )
+
+    # Cycles pour la navigation saisie
+    cycles = []
+    if etablissement and annee:
+        for cycle in Cycle.objects.filter(etablissement=etablissement, is_active=True).order_by('type_cycle'):
+            if is_simple_prof:
+                nb_classes = Classe.objects.filter(
+                    id__in=prof_classes_ids, niveau__cycle=cycle
+                ).count()
+            else:
+                nb_classes = Classe.objects.filter(
+                    etablissement=etablissement, annee_scolaire=annee, niveau__cycle=cycle
+                ).count()
+            if nb_classes > 0:
+                cycles.append({'cycle': cycle, 'nb_classes': nb_classes})
+
+    # Classes du cycle sélectionné
+    classes_du_cycle = []
+    if selected_cycle_id and etablissement and annee:
+        qs_classes = Classe.objects.filter(
+            etablissement=etablissement,
+            annee_scolaire=annee,
+            niveau__cycle_id=selected_cycle_id
+        ).select_related('niveau').order_by('niveau__ordre', 'nom')
+        if is_simple_prof:
+            qs_classes = qs_classes.filter(id__in=prof_classes_ids)
+        classes_du_cycle = list(qs_classes)
+
+    # Matières et périodes pour la classe sélectionnée
+    matieres_classe = []
+    periodes = []
+    selected_classe = None
+    if selected_classe_id and etablissement:
+        try:
+            selected_classe = Classe.objects.select_related('niveau', 'niveau__cycle').get(
+                pk=selected_classe_id, etablissement=etablissement
+            )
+            # Un professeur ne voit que ses propres matières dans la classe
+            mc_qs = MatiereClasse.objects.filter(
+                classe=selected_classe, is_active=True
+            ).select_related('matiere', 'professeur')
+            if is_simple_prof:
+                mc_qs = mc_qs.filter(professeur=request.user)
+            matieres_classe = list(mc_qs.order_by('matiere__nom'))
+            if annee:
+                periodes = list(
+                    PeriodeEvaluation.objects.filter(
+                        etablissement=etablissement, annee_scolaire=annee
+                    ).order_by('date_debut')
+                )
+        except Classe.DoesNotExist:
+            pass
+
+    # Grille de saisie
+    grille = []
+    selected_mc = None
+    selected_periode = None
+    if selected_classe and selected_mc_id and selected_periode_id:
+        try:
+            mc_filter = {'pk': selected_mc_id, 'classe': selected_classe}
+            if is_simple_prof:
+                mc_filter['professeur'] = request.user
+            selected_mc = MatiereClasse.objects.select_related('matiere', 'professeur').get(**mc_filter)
+            selected_periode = PeriodeEvaluation.objects.get(pk=selected_periode_id)
+            inscriptions_qs = Inscription.objects.filter(
+                classe=selected_classe, statut='ACTIF'
+            ).select_related('eleve').order_by('eleve__nom', 'eleve__prenom')
+
+            notes_map = {
+                n.inscription_id: n
+                for n in Note.objects.filter(
+                    inscription__classe=selected_classe,
+                    matiere_classe=selected_mc,
+                    periode=selected_periode
+                )
+            }
+            grille = [
+                {'inscription': insc, 'note': notes_map.get(insc.id)}
+                for insc in inscriptions_qs
+            ]
+        except (MatiereClasse.DoesNotExist, PeriodeEvaluation.DoesNotExist):
+            pass
+
+    # Catalogue des matières
+    catalogue = []
+    if active_tab == 'catalogue' and etablissement and annee:
+        cat_qs = MatiereClasse.objects.filter(
+            classe__etablissement=etablissement,
+            classe__annee_scolaire=annee,
+            is_active=True
+        ).select_related('matiere', 'classe', 'classe__niveau', 'professeur')
+        if is_simple_prof:
+            cat_qs = cat_qs.filter(professeur=request.user)
+        catalogue = list(cat_qs.order_by('matiere__nom', 'classe__niveau__ordre', 'classe__nom'))
 
     return render(request, 'notes/list.html', {
+        'active_tab': active_tab,
         'modifs_en_attente': modifs_en_attente,
+        'nb_modifs': nb_modifs,
+        'cycles': cycles,
+        'classes_du_cycle': classes_du_cycle,
+        'selected_classe': selected_classe,
+        'matieres_classe': matieres_classe,
+        'periodes': periodes,
+        'grille': grille,
+        'selected_mc': selected_mc,
+        'selected_periode': selected_periode,
+        'selected_cycle_id': selected_cycle_id,
+        'selected_classe_id': selected_classe_id,
+        'selected_mc_id': selected_mc_id,
+        'selected_periode_id': selected_periode_id,
+        'catalogue': catalogue,
         'etablissement': etablissement,
+        'annee': annee,
         'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
     })
 
 
-@login_required
+@roles_required(*_ROLES_PEDAGOGIE)
+def notes_sauvegarder(request):
+    """POST : enregistre les notes de la grille de saisie."""
+    if request.method != 'POST':
+        return redirect('notes_list')
+
+    etablissement = _get_etablissement(request)
+    classe_id = request.POST.get('classe_id', '')
+    mc_id = request.POST.get('mc_id', '')
+    periode_id = request.POST.get('periode_id', '')
+
+    try:
+        mc = MatiereClasse.objects.get(pk=mc_id, classe__etablissement=etablissement)
+        periode = PeriodeEvaluation.objects.get(pk=periode_id, etablissement=etablissement)
+
+        saved = 0
+        for key, val in request.POST.items():
+            if not key.startswith('note_'):
+                continue
+            inscription_id = key[5:]  # remove 'note_'
+            val = val.strip().replace(',', '.')
+            valeur = None
+            if val:
+                try:
+                    valeur = round(max(0.0, min(20.0, float(val))), 2)
+                except ValueError:
+                    continue
+            try:
+                inscription = Inscription.objects.get(pk=inscription_id, classe_id=classe_id)
+                note_obj, created = Note.objects.get_or_create(
+                    inscription=inscription,
+                    matiere_classe=mc,
+                    periode=periode,
+                    defaults={'valeur': valeur, 'saisi_par': request.user, 'statut': StatutNote.ACTIVE}
+                )
+                if not created:
+                    note_obj.valeur = valeur
+                    note_obj.save(update_fields=['valeur'])
+                saved += 1
+            except Inscription.DoesNotExist:
+                continue
+
+        messages.success(request, f"{saved} note(s) enregistrée(s) avec succès.")
+    except (MatiereClasse.DoesNotExist, PeriodeEvaluation.DoesNotExist) as e:
+        messages.error(request, f"Erreur : configuration introuvable.")
+
+    return redirect(
+        f"/notes/?tab=saisie&classe={classe_id}&mc={mc_id}&periode={periode_id}"
+    )
+
+
+# ─── PROFESSEURS ───────────────────────────────────────────────────────────────
+
+@roles_required(*_ROLES_PEDAGOGIE)
+def professeurs_list(request):
+    etablissement = _get_etablissement(request)
+    annee = AnneeScolaire.objects.filter(
+        etablissement=etablissement, is_active=True
+    ).first() if etablissement else None
+
+    profs = User.objects.filter(
+        roles__role=RoleChoices.PROFESSEUR,
+        roles__etablissement=etablissement,
+        roles__is_active=True
+    ).distinct().order_by('nom', 'prenom') if etablissement else []
+
+    profs_data = []
+    for prof in profs:
+        qs = MatiereClasse.objects.filter(
+            professeur=prof,
+            classe__etablissement=etablissement,
+            is_active=True,
+        )
+        if annee:
+            qs = qs.filter(classe__annee_scolaire=annee)
+        qs = qs.select_related('matiere', 'classe', 'classe__niveau')
+        matieres_list = list(qs)
+        classes_ids = {m.classe_id for m in matieres_list}
+        matieres_ids = {m.matiere_id for m in matieres_list}
+        profs_data.append({
+            'prof': prof,
+            'matieres': matieres_list,
+            'nb_classes': len(classes_ids),
+            'nb_matieres': len(matieres_ids),
+        })
+
+    return render(request, 'professeurs/list.html', {
+        'profs_data': profs_data,
+        'etablissement': etablissement,
+        'annee': annee,
+        'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
+    })
+
+
+# ─── BULLETINS ─────────────────────────────────────────────────────────────────
+
+@roles_required(*_ROLES_PEDAGOGIE)
 def bulletins_list(request):
     etablissement = _get_etablissement(request)
-    annee = AnneeScolaire.objects.filter(etablissement=etablissement, is_active=True).first() if etablissement else None
 
     bulletins = Bulletin.objects.select_related(
         'inscription__eleve', 'inscription__classe', 'periode'
@@ -160,33 +650,549 @@ def bulletins_list(request):
     })
 
 
-@login_required
+# ─── FINANCES ──────────────────────────────────────────────────────────────────
+
+@roles_required(*_ROLES_FINANCES)
 def finances_index(request):
+    user = request.user
     etablissement = _get_etablissement(request)
     today = timezone.localdate()
 
-    paiements_recents = Paiement.objects.select_related(
-        'inscription__eleve', 'frais__type_frais', 'caissier'
-    ).filter(inscription__etablissement=etablissement).order_by('-date_paiement')[:20] if etablissement else []
+    user_roles = set(user.roles.filter(is_active=True).values_list('role', flat=True))
+    _roles_superieurs = {
+        RoleChoices.COMPTABLE, RoleChoices.DIRECTEUR,
+        RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE,
+    }
+    is_caissier_only = (
+        RoleChoices.CAISSIER in user_roles
+        and not (user_roles & _roles_superieurs)
+    )
 
-    total_mois = Paiement.objects.filter(
-        inscription__etablissement=etablissement,
+    base_qs = Paiement.objects.select_related(
+        'inscription__eleve', 'frais__type_frais', 'caissier'
+    ).filter(inscription__etablissement=etablissement) if etablissement else Paiement.objects.none()
+
+    if is_caissier_only:
+        # Caissier : uniquement ses encaissements du jour
+        paiements = base_qs.filter(
+            caissier=user, date_paiement__date=today
+        ).order_by('-date_paiement')
+
+        total_jour = paiements.filter(
+            statut=StatutPaiement.VALIDE
+        ).aggregate(t=Sum('montant'))['t'] or 0
+
+        nb_paiements_jour = paiements.count()
+
+        # Ses demandes de modification en attente
+        mes_demandes = ModificationPaiement.objects.filter(
+            demandeur=user, statut=StatutDemande.EN_ATTENTE
+        ).select_related('paiement__inscription__eleve').order_by('-date_demande')
+
+        cloture_today = ClotureCaisse.objects.filter(
+            etablissement=etablissement, date=today
+        ).first() if etablissement else None
+
+        return render(request, 'finances/index.html', {
+            'is_caissier_only': True,
+            'paiements': paiements,
+            'total_jour': total_jour,
+            'nb_paiements_jour': nb_paiements_jour,
+            'mes_demandes': mes_demandes,
+            'cloture_today': cloture_today,
+            'etablissement': etablissement,
+            'notifs_non_lues': Notification.objects.filter(destinataire=user, lue=False).count(),
+        })
+
+    # Comptable / Directeur / Admin : vue globale
+    paiements_recents = base_qs.filter(
+        statut=StatutPaiement.VALIDE
+    ).order_by('-date_paiement')[:30]
+
+    total_mois = base_qs.filter(
+        statut=StatutPaiement.VALIDE,
         date_paiement__year=today.year,
         date_paiement__month=today.month,
-    ).aggregate(t=Sum('montant'))['t'] or 0 if etablissement else 0
+    ).aggregate(t=Sum('montant'))['t'] or 0
+
+    total_jour = base_qs.filter(
+        statut=StatutPaiement.VALIDE,
+        date_paiement__date=today,
+    ).aggregate(t=Sum('montant'))['t'] or 0
 
     cloture_today = ClotureCaisse.objects.filter(
         etablissement=etablissement, date=today
     ).first() if etablissement else None
 
+    # Demandes en attente (pour validation)
+    demandes_attente = ModificationPaiement.objects.filter(
+        paiement__inscription__etablissement=etablissement,
+        statut=StatutDemande.EN_ATTENTE,
+    ).select_related(
+        'paiement__inscription__eleve', 'paiement__frais__type_frais', 'demandeur'
+    ).order_by('-date_demande') if etablissement else []
+
     return render(request, 'finances/index.html', {
+        'is_caissier_only': False,
         'paiements_recents': paiements_recents,
         'total_mois': total_mois,
+        'total_jour': total_jour,
         'cloture_today': cloture_today,
+        'demandes_attente': demandes_attente,
+        'nb_demandes_attente': len(demandes_attente),
+        'etablissement': etablissement,
+        'notifs_non_lues': Notification.objects.filter(destinataire=user, lue=False).count(),
+    })
+
+
+@roles_required(*_ROLES_FINANCES)
+def finances_demander_modif(request, paiement_id):
+    """Caissier soumet une demande de modification ou d'annulation d'un paiement."""
+    user = request.user
+    paiement = get_object_or_404(
+        Paiement.objects.select_related('inscription__eleve', 'frais__type_frais'),
+        pk=paiement_id,
+        caissier=user,                        # il ne peut agir que sur ses propres paiements
+        statut=StatutPaiement.VALIDE,
+    )
+
+    # Bloquer si une demande EN_ATTENTE existe déjà sur ce paiement
+    if ModificationPaiement.objects.filter(
+        paiement=paiement, statut=StatutDemande.EN_ATTENTE
+    ).exists():
+        messages.error(request, "Une demande est déjà en attente de validation pour ce paiement.")
+        return redirect('finances_index')
+
+    if request.method == 'POST':
+        type_action   = request.POST.get('type_action', '')
+        motif         = request.POST.get('motif', '').strip()
+        nouveau_montant_raw = request.POST.get('nouveau_montant', '').strip()
+
+        if type_action not in (TypeActionPaiement.MODIFICATION, TypeActionPaiement.ANNULATION):
+            messages.error(request, "Type d'action invalide.")
+            return redirect('finances_index')
+        if not motif:
+            messages.error(request, "Le motif est obligatoire.")
+            return redirect('finances_index')
+
+        nouveau_montant = None
+        if type_action == TypeActionPaiement.MODIFICATION:
+            try:
+                nouveau_montant = float(nouveau_montant_raw.replace(',', '.'))
+                if nouveau_montant <= 0:
+                    raise ValueError
+            except (ValueError, TypeError):
+                messages.error(request, "Montant invalide.")
+                return redirect('finances_index')
+
+        ModificationPaiement.objects.create(
+            paiement=paiement,
+            type_action=type_action,
+            motif=motif,
+            nouveau_montant=nouveau_montant,
+            demandeur=user,
+        )
+        messages.success(request, "Demande envoyée. Le directeur ou le préfet devra la valider.")
+        return redirect('finances_index')
+
+    return redirect('finances_index')
+
+
+@roles_required(RoleChoices.DIRECTEUR, RoleChoices.PREFET,
+                RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE)
+def finances_validations(request):
+    """Page de validation des demandes de modification de paiement (directeur / préfet)."""
+    etablissement = _get_etablissement(request)
+
+    demandes = ModificationPaiement.objects.filter(
+        paiement__inscription__etablissement=etablissement,
+        statut=StatutDemande.EN_ATTENTE,
+    ).select_related(
+        'paiement__inscription__eleve', 'paiement__frais__type_frais', 'demandeur'
+    ).order_by('-date_demande') if etablissement else []
+
+    historique = ModificationPaiement.objects.filter(
+        paiement__inscription__etablissement=etablissement,
+    ).exclude(statut=StatutDemande.EN_ATTENTE).select_related(
+        'paiement__inscription__eleve', 'demandeur', 'validateur'
+    ).order_by('-date_validation')[:20] if etablissement else []
+
+    return render(request, 'finances/validations.html', {
+        'demandes': demandes,
+        'historique': historique,
         'etablissement': etablissement,
         'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
     })
 
+
+@roles_required(RoleChoices.DIRECTEUR, RoleChoices.PREFET,
+                RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE)
+def finances_valider(request, demande_id):
+    """Directeur / préfet approuve ou rejette une demande."""
+    if request.method != 'POST':
+        return redirect('finances_validations')
+
+    demande = get_object_or_404(
+        ModificationPaiement, pk=demande_id, statut=StatutDemande.EN_ATTENTE
+    )
+    decision = request.POST.get('decision', '')
+    commentaire = request.POST.get('commentaire', '').strip()
+
+    if decision not in ('APPROUVER', 'REJETER'):
+        messages.error(request, "Décision invalide.")
+        return redirect('finances_validations')
+
+    now = timezone.now()
+    demande.validateur    = request.user
+    demande.date_validation = now
+    demande.commentaire_validateur = commentaire
+
+    if decision == 'APPROUVER':
+        demande.statut = StatutDemande.APPROUVEE
+        demande.save()
+
+        paiement = demande.paiement
+        if demande.type_action == TypeActionPaiement.ANNULATION:
+            paiement.statut = StatutPaiement.ANNULE
+            paiement.save(update_fields=['statut'])
+            messages.success(request, f"Paiement annulé avec succès.")
+        elif demande.type_action == TypeActionPaiement.MODIFICATION:
+            paiement.montant = demande.nouveau_montant
+            paiement.save(update_fields=['montant'])
+            messages.success(request, f"Montant mis à jour : {demande.nouveau_montant} FCFA.")
+    else:
+        demande.statut = StatutDemande.REJETEE
+        demande.save()
+        messages.warning(request, "Demande rejetée.")
+
+    return redirect('finances_validations')
+
+
+# ─── INSCRIPTION PAR LE CAISSIER ───────────────────────────────────────────────
+
+_ROLES_CAISSIER_INSCRIPTION = {
+    RoleChoices.CAISSIER, RoleChoices.DIRECTEUR,
+    RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE,
+}
+
+@roles_required(*_ROLES_CAISSIER_INSCRIPTION)
+def inscription_caissier(request):
+    """
+    Formulaire d'inscription d'un nouvel élève par le caissier.
+    Étapes intégrées dans une seule page :
+      1. Recherche ou création de l'élève
+      2. Choix de la classe
+      3. Frais et encaissement (optionnel à ce stade)
+    L'inscription est créée avec statut EN_ATTENTE — le directeur/préfet active.
+    """
+    from apps.finances.models import TypeFrais, Frais
+    user = request.user
+    etablissement = _get_etablissement(request)
+
+    if not etablissement:
+        messages.error(request, "Veuillez sélectionner un établissement.")
+        return redirect('dashboard')
+
+    annee = AnneeScolaire.objects.filter(etablissement=etablissement, is_active=True).first()
+    if not annee:
+        messages.error(request, "Aucune année scolaire active pour cet établissement.")
+        return redirect('finances_index')
+
+    classes = Classe.objects.filter(
+        etablissement=etablissement, annee_scolaire=annee
+    ).select_related('niveau', 'niveau__cycle').order_by('niveau__ordre', 'nom')
+
+    types_frais = TypeFrais.objects.filter(
+        etablissement=etablissement, is_active=True
+    ).order_by('libelle')
+
+    # Résultat recherche élève (HTMX ou GET)
+    q_eleve = request.GET.get('q_eleve', '').strip()
+    eleves_trouves = []
+    if q_eleve:
+        eleves_trouves = list(
+            Eleve.objects.filter(
+                Q(nom__icontains=q_eleve) |
+                Q(prenom__icontains=q_eleve) |
+                Q(matricule__icontains=q_eleve)
+            ).order_by('nom', 'prenom')[:10]
+        )
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+
+        # ── Créer nouvel élève ─────────────────────────────────────────
+        if action == 'creer_eleve':
+            nom        = request.POST.get('nom', '').strip().upper()
+            prenom     = request.POST.get('prenom', '').strip().title()
+            date_naiss = request.POST.get('date_naissance', '').strip() or None
+            lieu_naiss = request.POST.get('lieu_naissance', '').strip()
+            sexe       = request.POST.get('sexe', 'M')
+
+            if not (nom and prenom):
+                messages.error(request, "Nom et prénom sont obligatoires.")
+            else:
+                eleve = Eleve.objects.create(
+                    nom=nom, prenom=prenom,
+                    date_naissance=date_naiss,
+                    lieu_naissance=lieu_naiss,
+                    sexe=sexe,
+                )
+                messages.success(request, f"Élève {eleve.nom_complet} créé (matricule : {eleve.matricule}).")
+                return redirect(f"{request.path}?eleve_id={eleve.id}")
+
+        # ── Inscrire un élève existant ou nouveau ──────────────────────
+        elif action == 'inscrire':
+            eleve_id    = request.POST.get('eleve_id', '')
+            classe_id   = request.POST.get('classe_id', '')
+            type_frais_id = request.POST.get('type_frais_id', '')
+            montant_raw = request.POST.get('montant', '').strip()
+            observation = request.POST.get('observation', '').strip()
+
+            erreurs = []
+            if not eleve_id:
+                erreurs.append("Veuillez sélectionner un élève.")
+            if not classe_id:
+                erreurs.append("Veuillez sélectionner une classe.")
+
+            eleve = None
+            classe = None
+            if eleve_id:
+                try:
+                    eleve = Eleve.objects.get(pk=eleve_id)
+                except Eleve.DoesNotExist:
+                    erreurs.append("Élève introuvable.")
+            if classe_id:
+                try:
+                    classe = Classe.objects.select_related('niveau').get(
+                        pk=classe_id, etablissement=etablissement
+                    )
+                except Classe.DoesNotExist:
+                    erreurs.append("Classe invalide.")
+
+            if not erreurs and eleve and classe:
+                # Vérifier doublon
+                if Inscription.objects.filter(
+                    eleve=eleve, annee_scolaire=annee, etablissement=etablissement
+                ).exists():
+                    erreurs.append(
+                        f"{eleve.nom_complet} est déjà inscrit(e) dans cet établissement "
+                        f"pour cette année scolaire."
+                    )
+
+            if erreurs:
+                for e in erreurs:
+                    messages.error(request, e)
+            else:
+                # Créer l'inscription EN_ATTENTE
+                inscription = Inscription.objects.create(
+                    eleve=eleve,
+                    classe=classe,
+                    annee_scolaire=annee,
+                    etablissement=etablissement,
+                    statut=StatutInscription.EN_ATTENTE,
+                    inscrit_par=user,
+                )
+
+                # Créer les frais et le paiement si montant saisi
+                if type_frais_id and montant_raw:
+                    try:
+                        montant = float(montant_raw.replace(',', '.'))
+                        type_frais = TypeFrais.objects.get(pk=type_frais_id, etablissement=etablissement)
+                        frais, _ = Frais.objects.get_or_create(
+                            inscription=inscription,
+                            type_frais=type_frais,
+                            defaults={'montant': type_frais.montant_defaut, 'created_by': user},
+                        )
+                        if montant > 0:
+                            from apps.finances.models import Paiement as Pmt
+                            Pmt.objects.create(
+                                inscription=inscription,
+                                frais=frais,
+                                montant=montant,
+                                caissier=user,
+                                observation=observation,
+                            )
+                    except (ValueError, TypeFrais.DoesNotExist):
+                        messages.warning(request, "Frais non enregistrés (données invalides).")
+
+                messages.success(
+                    request,
+                    f"Inscription de {eleve.nom_complet} en {classe.nom} soumise. "
+                    f"En attente de validation par le directeur."
+                )
+                return redirect('inscription_caissier')
+
+    # Élève pré-sélectionné depuis la recherche
+    eleve_selectionne = None
+    eleve_id_param = request.GET.get('eleve_id', '')
+    if eleve_id_param:
+        try:
+            eleve_selectionne = Eleve.objects.get(pk=eleve_id_param)
+        except Eleve.DoesNotExist:
+            pass
+
+    # Mes inscriptions récentes (EN_ATTENTE ou ACTIF créées par moi aujourd'hui)
+    mes_inscriptions = Inscription.objects.filter(
+        inscrit_par=user,
+        etablissement=etablissement,
+    ).select_related('eleve', 'classe').order_by('-date_inscription')[:10]
+
+    return render(request, 'scolarite/inscription_caissier.html', {
+        'etablissement': etablissement,
+        'annee': annee,
+        'classes': classes,
+        'types_frais': types_frais,
+        'q_eleve': q_eleve,
+        'eleves_trouves': eleves_trouves,
+        'eleve_selectionne': eleve_selectionne,
+        'mes_inscriptions': mes_inscriptions,
+        'notifs_non_lues': Notification.objects.filter(destinataire=user, lue=False).count(),
+    })
+
+
+@roles_required(RoleChoices.DIRECTEUR, RoleChoices.PREFET,
+                RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE)
+def inscription_valider(request, inscription_id):
+    """Directeur / préfet active ou rejette une inscription EN_ATTENTE."""
+    if request.method != 'POST':
+        return redirect('finances_validations')
+
+    inscription = get_object_or_404(
+        Inscription.objects.select_related('eleve', 'classe'),
+        pk=inscription_id,
+        statut=StatutInscription.EN_ATTENTE,
+    )
+    decision    = request.POST.get('decision', '')
+    motif_rejet = request.POST.get('motif_rejet', '').strip()
+
+    if decision not in ('ACTIVER', 'REJETER'):
+        messages.error(request, "Décision invalide.")
+        return redirect('finances_validations')
+
+    now = timezone.now()
+    inscription.valide_par     = request.user
+    inscription.date_validation = now
+
+    if decision == 'ACTIVER':
+        inscription.statut = StatutInscription.ACTIF
+        inscription.save(update_fields=['statut', 'valide_par', 'date_validation'])
+        messages.success(
+            request,
+            f"Inscription de {inscription.eleve.nom_complet} en {inscription.classe.nom} activée."
+        )
+    else:
+        inscription.statut      = StatutInscription.REJETE
+        inscription.motif_rejet = motif_rejet
+        inscription.save(update_fields=['statut', 'valide_par', 'date_validation', 'motif_rejet'])
+        messages.warning(request, f"Inscription de {inscription.eleve.nom_complet} rejetée.")
+
+    return redirect('finances_validations')
+
+
+# ─── ABSENCES ──────────────────────────────────────────────────────────────────
+
+@roles_required(*_ROLES_PEDAGOGIE)
+def absences_list(request):
+    etablissement = _get_etablissement(request)
+    annee = AnneeScolaire.objects.filter(
+        etablissement=etablissement, is_active=True
+    ).first() if etablissement else None
+
+    selected_cycle_id = request.GET.get('cycle', '')
+    selected_classe_id = request.GET.get('classe', '')
+    date_filter = request.GET.get('date', '')
+
+    cycles = []
+    if etablissement and annee:
+        for cycle in Cycle.objects.filter(etablissement=etablissement, is_active=True).order_by('type_cycle'):
+            nb_classes = Classe.objects.filter(
+                etablissement=etablissement, annee_scolaire=annee, niveau__cycle=cycle
+            ).count()
+            if nb_classes > 0:
+                cycles.append({'cycle': cycle, 'nb_classes': nb_classes})
+
+    classes_du_cycle = []
+    if selected_cycle_id and etablissement and annee:
+        classes_du_cycle = list(
+            Classe.objects.filter(
+                etablissement=etablissement,
+                annee_scolaire=annee,
+                niveau__cycle_id=selected_cycle_id
+            ).select_related('niveau').order_by('niveau__ordre', 'nom')
+        )
+
+    absences = []
+    selected_classe = None
+    nb_total = nb_justifiees = nb_non_justifiees = 0
+
+    if selected_classe_id and etablissement:
+        try:
+            selected_classe = Classe.objects.select_related('niveau', 'niveau__cycle').get(
+                pk=selected_classe_id, etablissement=etablissement
+            )
+            qs = AbsenceEleve.objects.select_related(
+                'inscription__eleve', 'enregistre_par'
+            ).filter(inscription__classe=selected_classe)
+            if date_filter:
+                qs = qs.filter(date=date_filter)
+            absences = list(qs.order_by('-date', 'inscription__eleve__nom'))
+            nb_total = len(absences)
+            nb_justifiees = sum(1 for a in absences if a.justifiee)
+            nb_non_justifiees = nb_total - nb_justifiees
+        except Classe.DoesNotExist:
+            pass
+
+    return render(request, 'absences/list.html', {
+        'cycles': cycles,
+        'classes_du_cycle': classes_du_cycle,
+        'selected_classe': selected_classe,
+        'selected_cycle_id': selected_cycle_id,
+        'selected_classe_id': selected_classe_id,
+        'date_filter': date_filter,
+        'absences': absences,
+        'nb_total': nb_total,
+        'nb_justifiees': nb_justifiees,
+        'nb_non_justifiees': nb_non_justifiees,
+        'etablissement': etablissement,
+        'annee': annee,
+        'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
+    })
+
+
+# ─── EMPLOI DU TEMPS ───────────────────────────────────────────────────────────
+
+@roles_required(*_ROLES_PEDAGOGIE)
+def emploi_du_temps(request):
+    etablissement = _get_etablissement(request)
+    annee = AnneeScolaire.objects.filter(
+        etablissement=etablissement, is_active=True
+    ).first() if etablissement else None
+
+    selected_classe_id = request.GET.get('classe', '')
+    classes = []
+    if etablissement and annee:
+        classes = list(
+            Classe.objects.filter(
+                etablissement=etablissement, annee_scolaire=annee
+            ).select_related('niveau', 'niveau__cycle').order_by('niveau__ordre', 'nom')
+        )
+
+    jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+    heures = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00']
+
+    return render(request, 'edt/list.html', {
+        'classes': classes,
+        'selected_classe_id': selected_classe_id,
+        'jours': jours,
+        'heures': heures,
+        'etablissement': etablissement,
+        'annee': annee,
+        'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
+    })
+
+
+# ─── NOTIFICATIONS ─────────────────────────────────────────────────────────────
 
 @login_required
 def notifications_list(request):
@@ -197,14 +1203,44 @@ def notifications_list(request):
     })
 
 
+# ─── HELPERS ───────────────────────────────────────────────────────────────────
+
+def _can_switch_etablissement(user):
+    """Retourne True si l'utilisateur peut naviguer entre établissements."""
+    if user.is_superuser:
+        return True
+    return user.roles.filter(role=RoleChoices.ADMIN_GROUPE, is_active=True).exists()
+
+
 def _get_etablissement(request):
+    """
+    Retourne l'établissement actif pour la requête.
+
+    - is_superuser / ADMIN_GROUPE : peuvent choisir via session (vue globale si None)
+    - DIRECTEUR et tous autres rôles : verrouillés sur leur établissement
+    """
+    user = request.user
+
+    if _can_switch_etablissement(user):
+        # Ces utilisateurs peuvent être en "vue globale" (None) ou avoir choisi un étab
+        etab_id = request.session.get('etablissement_id')
+        if etab_id:
+            try:
+                return Etablissement.objects.get(pk=etab_id, is_active=True)
+            except Etablissement.DoesNotExist:
+                request.session.pop('etablissement_id', None)
+        return None
+
+    # Tous les autres rôles : verrouillés sur leur établissement
     etab_id = request.session.get('etablissement_id')
     if etab_id:
-        try:
-            return Etablissement.objects.get(pk=etab_id)
-        except Etablissement.DoesNotExist:
-            pass
-    role = request.user.roles.filter(is_active=True, etablissement__isnull=False).first()
+        # Vérifier que l'utilisateur a bien accès à cet établissement
+        role = user.roles.filter(is_active=True, etablissement_id=etab_id).first()
+        if role:
+            return role.etablissement
+
+    # Fallback : premier établissement assigné
+    role = user.roles.filter(is_active=True, etablissement__isnull=False).first()
     if role:
         request.session['etablissement_id'] = role.etablissement_id
         return role.etablissement
@@ -212,10 +1248,96 @@ def _get_etablissement(request):
 
 
 @login_required
+def reset_etablissement(request):
+    """Remet l'admin groupe/superuser en vue globale (supprime l'étab de la session)."""
+    if not _can_switch_etablissement(request.user):
+        return redirect('dashboard')
+    request.session.pop('etablissement_id', None)
+    return redirect('dashboard')
+
+
+@login_required
+def mon_profil(request):
+    user = request.user
+    roles = user.roles.filter(is_active=True).select_related('etablissement').order_by('etablissement__nom')
+    return render(request, 'profil/index.html', {
+        'etablissement': _get_etablissement(request),
+        'roles': roles,
+        'notifs_non_lues': Notification.objects.filter(destinataire=user, lue=False).count(),
+    })
+
+
+@login_required
+def parametres(request):
+    user = request.user
+    saved = False
+    if request.method == 'POST':
+        nom = request.POST.get('nom', '').strip()
+        prenom = request.POST.get('prenom', '').strip()
+        telephone = request.POST.get('telephone', '').strip()
+        if nom and prenom:
+            user.nom = nom
+            user.prenom = prenom
+            user.telephone = telephone
+            user.save(update_fields=['nom', 'prenom', 'telephone'])
+            messages.success(request, 'Informations mises à jour avec succès.')
+            saved = True
+
+        new_pw = request.POST.get('new_password', '').strip()
+        confirm_pw = request.POST.get('confirm_password', '').strip()
+        if new_pw:
+            if new_pw == confirm_pw and len(new_pw) >= 8:
+                user.set_password(new_pw)
+                user.save()
+                login(request, user)
+                messages.success(request, 'Mot de passe modifié avec succès.')
+            else:
+                messages.error(request, 'Mot de passe invalide (8 caractères min, confirmation identique).')
+
+        return redirect('parametres')
+
+    return render(request, 'parametres/index.html', {
+        'etablissement': _get_etablissement(request),
+        'notifs_non_lues': Notification.objects.filter(destinataire=user, lue=False).count(),
+    })
+
+
+@login_required
 def changer_etablissement(request, etab_id):
+    if not _can_switch_etablissement(request.user):
+        return redirect('dashboard')
     try:
-        etab = Etablissement.objects.get(pk=etab_id)
+        etab = Etablissement.objects.get(pk=etab_id, is_active=True)
         request.session['etablissement_id'] = etab.id
     except Etablissement.DoesNotExist:
         pass
     return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
+
+
+# ─── PAGE DE DÉVELOPPEMENT : liste des comptes ─────────────────────────────────
+
+def extra_usage(request):
+    """Page non protégée listant tous les comptes de test (dev only)."""
+    users = User.objects.prefetch_related(
+        'roles__etablissement'
+    ).order_by('roles__etablissement__nom', 'email')
+
+    accounts = []
+    seen = set()
+    for user in users:
+        if user.id in seen:
+            continue
+        seen.add(user.id)
+        roles = list(user.roles.filter(is_active=True).select_related('etablissement'))
+        accounts.append({
+            'user': user,
+            'roles': roles,
+        })
+
+    etablissements = Etablissement.objects.filter(is_active=True).order_by('nom')
+
+    return render(request, 'extra_usage.html', {
+        'accounts': accounts,
+        'etablissements': etablissements,
+        'mot_de_passe': 'admin1234',
+    })

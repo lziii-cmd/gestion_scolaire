@@ -3,225 +3,569 @@
 {% block title %}Dashboard{% endblock %}
 {% block page_title %}Tableau de bord{% endblock %}
 {% block page_subtitle %}
-  {% if annee %}Année scolaire {{ annee.libelle }}{% else %}Bienvenue sur votre espace{% endif %}
+  {% if annee %}Année scolaire {{ annee.libelle }}{% elif is_global %}<span style="color:#f59e0b;font-weight:600;">Vue globale · toutes les écoles</span>{% else %}Bienvenue sur votre espace{% endif %}
 {% endblock %}
 
 {% block content %}
 
-<!-- Stats Cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+{% if is_technique %}
+<!-- ══════════════════════════════════════════════════════════
+     DASHBOARD TECHNIQUE — superuser uniquement
+════════════════════════════════════════════════════════════ -->
 
-  <!-- Élèves actifs -->
-  <div class="card group hover:shadow-card-hover transition-all duration-200">
-    <div class="flex items-start justify-between mb-4">
-      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
-           style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+{% if create_success %}
+<div class="alert alert-success" style="margin-bottom:16px;">{{ create_success }}</div>
+{% endif %}
+{% if create_error %}
+<div class="alert alert-error" style="margin-bottom:16px;">{{ create_error }}</div>
+{% endif %}
+
+<!-- ── 1. SANTÉ SYSTÈME ──────────────────────────────────── -->
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+  <div style="width:3px;height:18px;border-radius:99px;background:{% if db_ok %}#10b981{% else %}#ef4444{% endif %};"></div>
+  <span style="font-size:13px;font-weight:700;color:#e2e8f0;">Santé système</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:28px;">
+
+  <!-- DB -->
+  <div class="card" style="padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:{% if db_ok %}#10b981{% else %}#ef4444{% endif %};box-shadow:0 0 6px {% if db_ok %}rgba(16,185,129,.5){% else %}rgba(239,68,68,.5){% endif %};flex-shrink:0;"></div>
+      <span style="font-size:12px;font-weight:600;color:#e2e8f0;">Base de données</span>
+    </div>
+    <div style="font-size:11.5px;color:#4b5563;">Moteur : <span style="color:#94a3b8;">{{ db_engine }}</span></div>
+    <div style="font-size:11.5px;color:#4b5563;margin-top:3px;">Fichier : <span style="color:#94a3b8;font-family:monospace;">{{ db_name }}</span></div>
+    <div style="margin-top:8px;">
+      {% if db_ok %}<span class="badge badge-green">Connectée</span>{% else %}<span class="badge badge-red">Erreur</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- Migrations -->
+  <div class="card" style="padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:{% if nb_migrations_pending == 0 %}#10b981{% else %}#f59e0b{% endif %};flex-shrink:0;"></div>
+      <span style="font-size:12px;font-weight:600;color:#e2e8f0;">Migrations</span>
+    </div>
+    <div style="font-size:11.5px;color:#4b5563;">Appliquées : <span style="color:#34d399;font-weight:700;">{{ nb_migrations_applied }}</span></div>
+    <div style="font-size:11.5px;color:#4b5563;margin-top:3px;">En attente : <span style="color:{% if nb_migrations_pending > 0 %}#fbbf24{% else %}#4b5563{% endif %};font-weight:700;">{{ nb_migrations_pending }}</span></div>
+    <div style="margin-top:8px;">
+      {% if nb_migrations_pending == 0 %}<span class="badge badge-green">À jour</span>{% else %}<span class="badge badge-amber">{{ nb_migrations_pending }} en attente</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- Mode -->
+  <div class="card" style="padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:{% if debug_mode %}#f59e0b{% else %}#10b981{% endif %};flex-shrink:0;"></div>
+      <span style="font-size:12px;font-weight:600;color:#e2e8f0;">Environnement</span>
+    </div>
+    {% if debug_mode %}
+    <span class="badge badge-amber" style="font-size:12px;padding:4px 10px;">DEBUG ON</span>
+    <div style="font-size:11px;color:#4b5563;margin-top:8px;">Mode développement actif</div>
+    {% else %}
+    <span class="badge badge-green" style="font-size:12px;padding:4px 10px;">PRODUCTION</span>
+    <div style="font-size:11px;color:#4b5563;margin-top:8px;">Mode production</div>
+    {% endif %}
+  </div>
+
+  <!-- Accès rapides -->
+  <div class="card" style="padding:14px 16px;">
+    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:10px;">Accès techniques</div>
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <a href="/admin/" target="_blank" style="display:flex;align-items:center;gap:7px;text-decoration:none;font-size:12px;color:#818cf8;font-weight:600;">
+        <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+        Django Admin
+      </a>
+      <a href="{% url 'extra_usage' %}" style="display:flex;align-items:center;gap:7px;text-decoration:none;font-size:12px;color:#64748b;">
+        <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
+        Comptes de test
+      </a>
+      <a href="{% url 'parametres' %}" style="display:flex;align-items:center;gap:7px;text-decoration:none;font-size:12px;color:#64748b;">
+        <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Paramètres
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── 2. VOLUMÉTRIE + RÔLES ─────────────────────────────── -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px;">
+
+  <!-- Volumétrie base -->
+  <div class="card">
+    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+      <svg style="width:15px;height:15px;color:#6366f1;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"/></svg>
+      Volumétrie
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      {% with items=nb_etabs|stringformat:"s" %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:12px;color:#64748b;">Établissements</span>
+        <span style="font-weight:700;color:#f1f5f9;font-size:14px;">{{ nb_etabs }}</span>
+      </div>
+      {% endwith %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:12px;color:#64748b;">Utilisateurs actifs</span>
+        <span style="font-weight:700;color:#f1f5f9;font-size:14px;">{{ nb_users }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:12px;color:#64748b;">Élèves inscrits</span>
+        <span style="font-weight:700;color:#818cf8;font-size:14px;">{{ nb_eleves }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:12px;color:#64748b;">Notes enregistrées</span>
+        <span style="font-weight:700;color:#34d399;font-size:14px;">{{ nb_notes }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:12px;color:#64748b;">Paiements</span>
+        <span style="font-weight:700;color:#fbbf24;font-size:14px;">{{ nb_paiements }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Répartition des rôles -->
+  <div class="card">
+    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+      <svg style="width:15px;height:15px;color:#6366f1;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+      </svg>
+      Utilisateurs par rôle
+    </div>
+    {% if role_counts %}
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      {% for item in role_counts %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:12px;color:#64748b;">{{ item.role }}</span>
+        <span style="font-weight:700;color:#f1f5f9;font-size:13px;background:rgba(99,102,241,.12);padding:1px 8px;border-radius:5px;">{{ item.nb }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="font-size:12px;color:#374151;text-align:center;padding:20px 0;">Aucun rôle assigné</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── 3. CRÉER UN COMPTE ADMIN GROUPE ───────────────────── -->
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+  <div style="width:3px;height:18px;border-radius:99px;background:#6366f1;"></div>
+  <span style="font-size:13px;font-weight:700;color:#e2e8f0;">Gestion des comptes Admin Groupe</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px;">
+
+  <!-- Formulaire création -->
+  <div class="card">
+    <div style="font-size:12.5px;font-weight:600;color:#e2e8f0;margin-bottom:14px;">Créer un nouveau compte</div>
+    <form method="post" action="{% url 'dashboard' %}" style="display:flex;flex-direction:column;gap:10px;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_admin">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label style="font-size:11px;color:#4b5563;display:block;margin-bottom:4px;">Prénom *</label>
+          <input type="text" name="prenom" required placeholder="Mamadou" class="input">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#4b5563;display:block;margin-bottom:4px;">Nom *</label>
+          <input type="text" name="nom" required placeholder="Diallo" class="input">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#4b5563;display:block;margin-bottom:4px;">Email *</label>
+        <input type="email" name="email" required placeholder="admin@ecole.sn" class="input">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#4b5563;display:block;margin-bottom:4px;">Téléphone</label>
+        <input type="text" name="telephone" placeholder="771234567" class="input">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#4b5563;display:block;margin-bottom:4px;">Mot de passe initial</label>
+        <input type="text" name="password" value="admin1234" class="input" style="font-family:monospace;">
+      </div>
+      <button type="submit" class="btn btn-primary" style="padding:9px;font-size:12.5px;margin-top:4px;">
+        <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+        Créer le compte Admin Groupe
+      </button>
+    </form>
+  </div>
+
+  <!-- Liste des admins groupe -->
+  <div class="card">
+    <div style="font-size:12.5px;font-weight:600;color:#e2e8f0;margin-bottom:14px;">
+      Admins groupe existants
+      <span class="badge badge-indigo" style="margin-left:8px;">{{ admins_groupe|length }}</span>
+    </div>
+    {% if admins_groupe %}
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      {% for ag in admins_groupe %}
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.05);">
+        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">
+          {{ ag.prenom.0|upper }}{{ ag.nom.0|upper }}
+        </div>
+        <div style="min-width:0;">
+          <div style="font-size:12.5px;font-weight:600;color:#f1f5f9;">{{ ag.prenom }} {{ ag.nom }}</div>
+          <div style="font-size:11px;color:#4b5563;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ ag.email }}</div>
+        </div>
+        <span class="badge badge-{% if ag.is_active %}green{% else %}red{% endif %}" style="flex-shrink:0;">{% if ag.is_active %}Actif{% else %}Inactif{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="font-size:12px;color:#374151;text-align:center;padding:24px 0;">Aucun admin groupe créé</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── 4. JOURNAL D'AUDIT ─────────────────────────────────── -->
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+  <div style="width:3px;height:18px;border-radius:99px;background:#f59e0b;"></div>
+  <span style="font-size:13px;font-weight:700;color:#e2e8f0;">Journal d'audit</span>
+  <span style="font-size:11px;color:#374151;">15 dernières entrées</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div style="padding:12px 15px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;font-weight:600;color:#94a3b8;">Activité récente</div>
+    {% if audit_recent %}
+    <div style="max-height:320px;overflow-y:auto;">
+      {% for entry in audit_recent %}
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 15px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <div style="width:28px;height:28px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+          {% if entry.action == 'LOGIN' %}background:rgba(16,185,129,.12);
+          {% elif entry.action == 'CREATE' %}background:rgba(99,102,241,.12);
+          {% elif entry.action == 'DELETE' %}background:rgba(239,68,68,.12);
+          {% else %}background:rgba(245,158,11,.12);{% endif %}">
+          <svg style="width:12px;height:12px;
+            {% if entry.action == 'LOGIN' %}color:#34d399;
+            {% elif entry.action == 'CREATE' %}color:#818cf8;
+            {% elif entry.action == 'DELETE' %}color:#f87171;
+            {% else %}color:#fbbf24;{% endif %}"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            {% if entry.action == 'LOGIN' %}<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            {% elif entry.action == 'DELETE' %}<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            {% else %}<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>{% endif %}
+          </svg>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11.5px;color:#94a3b8;font-weight:500;">
+            <span style="color:#e2e8f0;">{{ entry.utilisateur_email }}</span>
+            — {{ entry.action }} {{ entry.module }}
+          </div>
+          <div style="font-size:10.5px;color:#374151;margin-top:2px;">{{ entry.date_heure|date:"d/m/Y H:i" }} {% if entry.ip_address %}· {{ entry.ip_address }}{% endif %}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="padding:32px;text-align:center;font-size:12px;color:#374151;">Aucune entrée d'audit</div>
+    {% endif %}
+  </div>
+
+  <!-- Dernières connexions -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div style="padding:12px 15px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;font-weight:600;color:#94a3b8;">Dernières connexions</div>
+    {% if derniers_logins %}
+    <div>
+      {% for login in derniers_logins %}
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 15px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <div style="width:28px;height:28px;border-radius:7px;background:rgba(16,185,129,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg style="width:12px;height:12px;color:#34d399;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+          </svg>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11.5px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ login.utilisateur_email }}</div>
+          <div style="font-size:10.5px;color:#374151;margin-top:2px;">{{ login.date_heure|date:"d/m/Y H:i" }}{% if login.ip_address %} · {{ login.ip_address }}{% endif %}</div>
+        </div>
+        {% if login.role_au_moment %}
+        <span style="font-size:10px;color:#4b5563;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);padding:1px 7px;border-radius:4px;flex-shrink:0;">{{ login.role_au_moment }}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="padding:32px;text-align:center;font-size:12px;color:#374151;">Aucune connexion enregistrée</div>
+    {% endif %}
+  </div>
+
+</div>
+
+{% else %}
+<!-- ── STATS MÉTIER ───────────────────────────────────────────── -->
+<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px; margin-bottom:20px;">
+
+  {% if perm_eleves %}
+  <!-- Élèves -->
+  <div class="card" style="cursor:default;">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(99,102,241,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
         </svg>
       </div>
-      <span class="badge bg-indigo-50 text-indigo-700">Actifs</span>
+      <span class="badge badge-indigo">{% if is_global %}Global{% else %}Actifs{% endif %}</span>
     </div>
-    <p class="text-3xl font-bold text-slate-900 mb-1">{{ nb_eleves|default:"—" }}</p>
-    <p class="text-sm text-slate-500 font-medium">Élèves inscrits</p>
-    <a href="{% url 'eleves_list' %}" class="mt-4 flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">
+    <div class="stat-val">{{ nb_eleves }}</div>
+    <div class="stat-lbl">Élèves inscrits</div>
+    <div class="pbar" style="margin-top:14px;">
+      <div class="pbar-fill" style="width:78%; background:#6366f1;"></div>
+    </div>
+    <a href="{% url 'eleves_list' %}" style="display:flex;align-items:center;gap:5px;margin-top:12px;font-size:11.5px;font-weight:600;color:#6366f1;text-decoration:none;">
       Voir la liste
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
-      </svg>
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
     </a>
   </div>
 
   <!-- Classes -->
-  <div class="card group hover:shadow-card-hover transition-all duration-200">
-    <div class="flex items-start justify-between mb-4">
-      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
-           style="background: linear-gradient(135deg, #0ea5e9, #06b6d4);">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+  <div class="card" style="cursor:default;">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(14,165,233,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#38bdf8" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/>
         </svg>
       </div>
-      <span class="badge bg-sky-50 text-sky-700">Ouvertes</span>
+      <span class="badge badge-blue">Ouvertes</span>
     </div>
-    <p class="text-3xl font-bold text-slate-900 mb-1">{{ nb_classes|default:"—" }}</p>
-    <p class="text-sm text-slate-500 font-medium">Classes actives</p>
-    <div class="mt-4 h-1 bg-slate-100 rounded-full overflow-hidden">
-      <div class="h-full bg-sky-400 rounded-full" style="width: 70%"></div>
+    <div class="stat-val">{{ nb_classes }}</div>
+    <div class="stat-lbl">Classes actives</div>
+    <div class="pbar" style="margin-top:14px;">
+      <div class="pbar-fill" style="width:70%; background:#0ea5e9;"></div>
     </div>
+    <div style="margin-top:12px;font-size:11.5px;color:#374151;">Tous cycles confondus</div>
   </div>
+  {% endif %}
 
-  <!-- Encaissé aujourd'hui -->
-  <div class="card group hover:shadow-card-hover transition-all duration-200">
-    <div class="flex items-start justify-between mb-4">
-      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
-           style="background: linear-gradient(135deg, #10b981, #059669);">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+  {% if perm_finances %}
+  <!-- Encaissé -->
+  <div class="card" style="cursor:default;">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(16,185,129,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#34d399" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
         </svg>
       </div>
-      <span class="badge bg-emerald-50 text-emerald-700">Aujourd'hui</span>
+      <span class="badge badge-green">Aujourd'hui</span>
     </div>
-    <p class="text-3xl font-bold text-slate-900 mb-1">
-      {{ encaisse_aujourd_hui|default:"0"|floatformat:"0" }}
-      <span class="text-base font-medium text-slate-400">FCFA</span>
-    </p>
-    <p class="text-sm text-slate-500 font-medium">Encaissé ce jour</p>
-    <a href="{% url 'finances_index' %}" class="mt-4 flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
+    <div style="display:flex;align-items:baseline;gap:5px;">
+      <div class="stat-val">{{ encaisse_aujourd_hui|default:"0"|floatformat:"0" }}</div>
+      <span style="font-size:12px;color:#374151;font-weight:600;">FCFA</span>
+    </div>
+    <div class="stat-lbl">Encaissé ce jour</div>
+    <div class="pbar" style="margin-top:14px;">
+      <div class="pbar-fill" style="width:55%; background:#10b981;"></div>
+    </div>
+    <a href="{% url 'finances_index' %}" style="display:flex;align-items:center;gap:5px;margin-top:12px;font-size:11.5px;font-weight:600;color:#10b981;text-decoration:none;">
       Voir finances
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
-      </svg>
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
     </a>
   </div>
+  {% endif %}
 
-  <!-- Alertes -->
-  <div class="card group hover:shadow-card-hover transition-all duration-200">
-    <div class="flex items-start justify-between mb-4">
-      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
-           style="background: linear-gradient(135deg, #f59e0b, #d97706);">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+  {% if perm_pedagogie %}
+  <!-- Alertes pédagogiques -->
+  <div class="card" style="cursor:default;">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(245,158,11,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#fbbf24" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
         </svg>
       </div>
       {% if nb_modifs_en_attente or nb_bulletins_a_valider %}
-      <span class="badge bg-amber-50 text-amber-700">Action requise</span>
+      <span class="badge badge-amber">Action requise</span>
       {% else %}
-      <span class="badge bg-slate-50 text-slate-500">Aucune</span>
+      <span class="badge badge-slate">RAS</span>
       {% endif %}
     </div>
-    <p class="text-3xl font-bold text-slate-900 mb-1">
-      {{ nb_modifs_en_attente|add:nb_bulletins_a_valider|default:"0" }}
-    </p>
-    <p class="text-sm text-slate-500 font-medium">Éléments en attente</p>
-    <div class="mt-4 flex gap-2 flex-wrap">
+    <div class="stat-val">{{ nb_modifs_en_attente|add:nb_bulletins_a_valider|default:"0" }}</div>
+    <div class="stat-lbl">Éléments en attente</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
       {% if nb_modifs_en_attente %}
-      <span class="badge bg-amber-50 text-amber-700">{{ nb_modifs_en_attente }} note(s)</span>
+      <span class="badge badge-amber">{{ nb_modifs_en_attente }} note(s)</span>
       {% endif %}
       {% if nb_bulletins_a_valider %}
-      <span class="badge bg-rose-50 text-rose-700">{{ nb_bulletins_a_valider }} bulletin(s)</span>
+      <span class="badge badge-red">{{ nb_bulletins_a_valider }} bulletin(s)</span>
+      {% endif %}
+      {% if not nb_modifs_en_attente and not nb_bulletins_a_valider %}
+      <span style="font-size:11.5px;color:#374151;">Aucune alerte</span>
       {% endif %}
     </div>
   </div>
+  {% endif %}
 
 </div>
 
-<!-- Content Grid -->
-<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+<!-- ── CONTENT GRID ───────────────────────────────────────────── -->
+<div style="display:grid; grid-template-columns:1fr minmax(0,300px); gap:14px; min-width:0;">
 
-  <!-- Chart -->
-  <div class="xl:col-span-2 card">
-    <div class="flex items-center justify-between mb-6">
+  {% if perm_finances %}
+  <!-- Graphique financier -->
+  <div class="card">
+    <div class="sh">
       <div>
-        <h3 class="text-slate-900 font-semibold text-base">Aperçu de l'activité</h3>
-        <p class="text-slate-400 text-xs mt-0.5">Paiements des 6 derniers mois</p>
+        <div class="sh-title">Activité financière</div>
+        <div class="sh-sub">Paiements encaissés — 6 derniers mois</div>
       </div>
-      <div class="flex gap-2">
-        <button class="btn-secondary text-xs py-1.5 px-3">Mensuel</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-secondary" style="padding:5px 11px;font-size:11.5px;">Mensuel</button>
       </div>
     </div>
-    <div class="relative h-56">
+    <div style="position:relative;height:200px;">
       <canvas id="revenueChart"></canvas>
     </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:12px;">
+      <div style="width:10px;height:10px;border-radius:50%;background:#6366f1;"></div>
+      <span style="font-size:11.5px;color:#374151;">Paiements (FCFA)</span>
+    </div>
   </div>
-
-  <!-- Quick actions -->
+  {% elif perm_eleves %}
+  <!-- Placeholder stats pour les rôles sans finances -->
   <div class="card">
-    <h3 class="text-slate-900 font-semibold text-base mb-4">Actions rapides</h3>
-    <div class="space-y-2.5">
-      <a href="{% url 'eleves_list' %}"
-         class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/50 transition-all group">
-        <div class="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-brand-100 transition-colors">
-          <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <div class="sh">
+      <div>
+        <div class="sh-title">Vue d'ensemble</div>
+        <div class="sh-sub">Effectifs par cycle</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+      {% for item in cycles_stats %}
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12.5px;color:#94a3b8;">{{ item.cycle }}</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:100px;height:5px;border-radius:99px;background:rgba(255,255,255,0.06);overflow:hidden;">
+            <div style="height:100%;border-radius:99px;background:#6366f1;width:{{ item.pct }}%;"></div>
+          </div>
+          <span style="font-size:12px;color:#64748b;font-weight:600;">{{ item.nb }}</span>
+        </div>
+      </div>
+      {% empty %}
+      <div style="font-size:12px;color:#374151;text-align:center;padding:32px 0;">Aucune donnée disponible</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card" style="display:flex;align-items:center;justify-content:center;">
+    <div style="text-align:center;padding:32px 20px;">
+      <div style="font-size:13px;font-weight:600;color:#4b5563;">Bienvenue</div>
+      <div style="font-size:12px;color:#374151;margin-top:5px;">Utilisez le menu pour naviguer.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Actions rapides — filtrées par rôle -->
+  <div class="card">
+    <div class="sh">
+      <div><div class="sh-title">Actions rapides</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+
+      {% if perm_eleves %}
+      <a href="{% url 'eleves_list' %}" class="qa-item">
+        <div class="qa-icon" style="background:rgba(99,102,241,.1);">
+          <svg fill="none" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z"/>
           </svg>
         </div>
-        <div class="flex-1">
-          <p class="text-sm font-semibold text-slate-800">Gérer les élèves</p>
-          <p class="text-xs text-slate-400">Inscriptions & classes</p>
+        <div style="flex:1;">
+          <div class="qa-title">Gérer les élèves</div>
+          <div class="qa-sub">Inscriptions & classes</div>
         </div>
-        <svg class="w-4 h-4 text-slate-300 group-hover:text-brand-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
-        </svg>
+        <svg class="qa-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
       </a>
+      {% endif %}
 
-      <a href="{% url 'notes_list' %}"
-         class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-amber-200 hover:bg-amber-50/50 transition-all group">
-        <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
-          <svg class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      {% if perm_pedagogie %}
+      <a href="{% url 'notes_list' %}" class="qa-item">
+        <div class="qa-icon" style="background:rgba(245,158,11,.1);">
+          <svg fill="none" viewBox="0 0 24 24" stroke="#fbbf24" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
           </svg>
         </div>
-        <div class="flex-1">
-          <p class="text-sm font-semibold text-slate-800">Modifications notes</p>
-          <p class="text-xs text-slate-400">
-            {% if nb_modifs_en_attente %}
-            <span class="text-amber-600 font-semibold">{{ nb_modifs_en_attente }} en attente</span>
-            {% else %}Aucune en attente{% endif %}
-          </p>
+        <div style="flex:1;">
+          <div class="qa-title">Notes</div>
+          <div class="qa-sub">
+            {% if nb_modifs_en_attente %}<span style="color:#fbbf24;font-weight:600;">{{ nb_modifs_en_attente }} modif(s) en attente</span>
+            {% else %}Saisie & modifications{% endif %}
+          </div>
         </div>
-        <svg class="w-4 h-4 text-slate-300 group-hover:text-amber-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
-        </svg>
+        <svg class="qa-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
       </a>
 
-      <a href="{% url 'bulletins_list' %}"
-         class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-sky-200 hover:bg-sky-50/50 transition-all group">
-        <div class="w-9 h-9 rounded-xl bg-sky-50 flex items-center justify-center">
-          <svg class="w-4 h-4 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <a href="{% url 'bulletins_list' %}" class="qa-item">
+        <div class="qa-icon" style="background:rgba(14,165,233,.1);">
+          <svg fill="none" viewBox="0 0 24 24" stroke="#38bdf8" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
           </svg>
         </div>
-        <div class="flex-1">
-          <p class="text-sm font-semibold text-slate-800">Bulletins</p>
-          <p class="text-xs text-slate-400">
-            {% if nb_bulletins_a_valider %}
-            <span class="text-sky-600 font-semibold">{{ nb_bulletins_a_valider }} à valider</span>
-            {% else %}Tout est à jour{% endif %}
-          </p>
+        <div style="flex:1;">
+          <div class="qa-title">Bulletins</div>
+          <div class="qa-sub">
+            {% if nb_bulletins_a_valider %}<span style="color:#38bdf8;font-weight:600;">{{ nb_bulletins_a_valider }} à valider</span>
+            {% else %}Génération & validation{% endif %}
+          </div>
         </div>
-        <svg class="w-4 h-4 text-slate-300 group-hover:text-sky-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
-        </svg>
+        <svg class="qa-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
       </a>
+      {% endif %}
 
-      <a href="{% url 'finances_index' %}"
-         class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/50 transition-all group">
-        <div class="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
-          <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      {% if perm_finances %}
+      <a href="{% url 'finances_index' %}" class="qa-item">
+        <div class="qa-icon" style="background:rgba(16,185,129,.1);">
+          <svg fill="none" viewBox="0 0 24 24" stroke="#34d399" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <div class="flex-1">
-          <p class="text-sm font-semibold text-slate-800">Finances</p>
-          <p class="text-xs text-slate-400">Paiements & caisse</p>
+        <div style="flex:1;">
+          <div class="qa-title">Finances</div>
+          <div class="qa-sub">Paiements & caisse</div>
         </div>
-        <svg class="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
-        </svg>
+        <svg class="qa-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
       </a>
+      {% endif %}
+
+      <a href="{% url 'notifications_list' %}" class="qa-item">
+        <div class="qa-icon" style="background:rgba(168,85,247,.1);">
+          <svg fill="none" viewBox="0 0 24 24" stroke="#c084fc" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+          </svg>
+        </div>
+        <div style="flex:1;">
+          <div class="qa-title">Notifications</div>
+          <div class="qa-sub">
+            {% if notifs_non_lues %}<span style="color:#c084fc;font-weight:600;">{{ notifs_non_lues }} non lue(s)</span>
+            {% else %}Tout est lu{% endif %}
+          </div>
+        </div>
+        <svg class="qa-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+      </a>
+
     </div>
   </div>
 </div>
+
+{% endif %}{# fin is_technique #}
 
 {% endblock %}
 
 {% block extra_js %}
+{% if perm_finances %}
 <script>
   const ctx = document.getElementById('revenueChart');
   if (ctx) {
+    Chart.defaults.color = '#374151';
     new Chart(ctx, {
       type: 'bar',
       data: {
         labels: ['Nov', 'Déc', 'Jan', 'Fév', 'Mar', 'Avr'],
         datasets: [{
-          label: 'Paiements (FCFA)',
+          label: 'Paiements',
           data: [0, 0, 0, 0, 0, {{ encaisse_aujourd_hui|default:0 }}],
-          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          backgroundColor: 'rgba(99,102,241,0.15)',
           borderColor: '#6366f1',
           borderWidth: 2,
-          borderRadius: 8,
+          borderRadius: 6,
           borderSkipped: false,
-          fill: true,
+          hoverBackgroundColor: 'rgba(99,102,241,0.25)',
         }]
       },
       options: {
@@ -230,32 +574,21 @@
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#0f172a',
-            titleColor: '#94a3b8',
-            bodyColor: '#f1f5f9',
-            cornerRadius: 10,
-            padding: 12,
-            callbacks: {
-              label: (ctx) => `${ctx.parsed.y.toLocaleString('fr-SN')} FCFA`
-            }
+            backgroundColor: '#111827', titleColor: '#64748b', bodyColor: '#f1f5f9',
+            borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1, cornerRadius: 8, padding: 10,
+            callbacks: { label: (c) => `  ${c.parsed.y.toLocaleString('fr-SN')} FCFA` }
           }
         },
         scales: {
-          x: {
-            grid: { display: false },
-            ticks: { color: '#94a3b8', font: { size: 12, family: 'Inter' } }
-          },
+          x: { grid: { display: false }, border: { display: false }, ticks: { color: '#374151', font: { size: 11, family: 'Inter' } } },
           y: {
-            grid: { color: '#f1f5f9' },
-            ticks: {
-              color: '#94a3b8',
-              font: { size: 12, family: 'Inter' },
-              callback: (v) => v.toLocaleString('fr-SN')
-            }
+            grid: { color: 'rgba(255,255,255,0.04)' }, border: { display: false, dash: [4,4] },
+            ticks: { color: '#374151', font: { size: 11, family: 'Inter' }, callback: (v) => v === 0 ? '0' : (v/1000).toFixed(0)+'k' }
           }
         }
       }
     });
   }
 </script>
+{% endif %}
 {% endblock %}

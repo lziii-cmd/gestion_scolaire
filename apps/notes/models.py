@@ -58,6 +58,11 @@ class Note(models.Model):
         'accounts.User', on_delete=models.SET_NULL, null=True,
         related_name='notes_saisies'
     )
+    delegue_par = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='notes_deleguees',
+        help_text="Renseigné si un professeur a délégué la saisie à un surveillant"
+    )
     date_saisie = models.DateTimeField(auto_now_add=True)
 
     class Meta:

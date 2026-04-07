@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Professeurs{% endblock %}
+{% block page_title %}Professeurs{% endblock %}
+{% block page_subtitle %}Corps enseignant et affectations aux matières{% endblock %}
+
+{% block content %}
+
+  <!-- Stats rapides -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:22px;">
+    <div class="card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
+        <div class="stat-icon" style="background:rgba(99,102,241,.15);">
+          <svg fill="none" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5"/>
+          </svg>
+        </div>
+        <span class="badge badge-indigo">Total</span>
+      </div>
+      <div class="stat-val">{{ profs_data|length }}</div>
+      <div class="stat-lbl">Professeurs</div>
+    </div>
+  </div>
+
+  {% if profs_data %}
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    {% for item in profs_data %}
+    {% with prof=item.prof %}
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 18px;">
+
+        <!-- Avatar -->
+        <div style="flex-shrink:0;width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:700;">
+          {{ prof.prenom.0|upper }}{{ prof.nom.0|upper }}
+        </div>
+
+        <!-- Infos -->
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+            <span style="font-size:13.5px;font-weight:700;color:#f1f5f9;">{{ prof.prenom }} {{ prof.nom }}</span>
+            <span class="badge badge-indigo">Professeur</span>
+            {% if item.nb_matieres > 0 %}
+            <span class="badge badge-slate">{{ item.nb_matieres }} matière{% if item.nb_matieres > 1 %}s{% endif %}</span>
+            {% endif %}
+            {% if item.nb_classes > 0 %}
+            <span class="badge badge-blue">{{ item.nb_classes }} classe{% if item.nb_classes > 1 %}s{% endif %}</span>
+            {% endif %}
+          </div>
+
+          <div style="font-size:11.5px;color:#4b5563;margin-bottom:10px;">{{ prof.email }}</div>
+
+          {% if item.matieres %}
+          <div style="display:flex;flex-wrap:wrap;gap:7px;">
+            {% for mc in item.matieres %}
+            <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:7px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);">
+              <div style="width:6px;height:6px;border-radius:50%;background:#6366f1;flex-shrink:0;"></div>
+              <span style="font-size:11.5px;color:#94a3b8;font-weight:500;">{{ mc.matiere.nom }}</span>
+              <span style="font-size:10.5px;color:#374151;">— {{ mc.classe.nom }}</span>
+              <span style="font-size:10px;color:#374151;background:rgba(255,255,255,0.04);padding:1px 6px;border-radius:4px;">coef. {{ mc.coefficient }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <span style="font-size:11.5px;color:#374151;font-style:italic;">Aucune affectation en cours</span>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="card" style="text-align:center;padding:72px 20px;">
+    <div style="width:52px;height:52px;border-radius:14px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+      <svg style="width:24px;height:24px;color:#818cf8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5"/>
+      </svg>
+    </div>
+    <div style="font-size:13px;font-weight:600;color:#4b5563;margin-bottom:5px;">Aucun professeur enregistré</div>
+    <div style="font-size:12px;color:#374151;">Les professeurs apparaîtront ici après leur création.</div>
+  </div>
+  {% endif %}
+
+{% endblock %}

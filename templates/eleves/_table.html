@@ -1,0 +1,138 @@
+{% if selected_classe %}
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:3px;height:18px;border-radius:99px;background:#10b981;"></div>
+      <div style="font-size:13px;font-weight:600;color:#e2e8f0;">{{ selected_classe.nom }}</div>
+      {% if page_obj %}
+      <span class="badge badge-green">{{ page_obj.paginator.count }} élève{% if page_obj.paginator.count > 1 %}s{% endif %}</span>
+      {% endif %}
+    </div>
+    <form hx-get="{% url 'eleves_list' %}"
+          hx-target="#eleves-table"
+          hx-push-url="true"
+          style="display:flex;gap:8px;align-items:center;">
+      <input type="hidden" name="cycle" value="{{ selected_cycle_id }}">
+      <input type="hidden" name="classe" value="{{ selected_classe_id }}">
+      <input type="text" name="q" value="{{ q|default:'' }}" placeholder="Rechercher un élève…" class="input" style="width:220px;">
+      <button type="submit" class="btn btn-secondary" style="padding:7px 12px;font-size:12px;">
+        <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+
+  {% if page_obj and page_obj.object_list %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Élève</th>
+          <th>Matricule</th>
+          <th>Date de naissance</th>
+          <th>Sexe</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inscription in page_obj %}
+        <tr class="tr" style="cursor:pointer;" onclick="window.location='{% url 'eleve_detail' inscription.eleve.id %}'">
+          <td style="font-size:11px;color:#374151;width:36px;">
+            {{ page_obj.start_index|add:forloop.counter0 }}
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0;">
+                {{ inscription.eleve.prenom.0|upper }}{{ inscription.eleve.nom.0|upper }}
+              </div>
+              <div class="cell-main" style="color:#f1f5f9;">{{ inscription.eleve.prenom }} {{ inscription.eleve.nom }}</div>
+            </div>
+          </td>
+          <td><span style="font-family:monospace;font-size:11px;color:#64748b;">{{ inscription.eleve.matricule }}</span></td>
+          <td style="font-size:12px;color:#64748b;">
+            {% if inscription.eleve.date_naissance %}{{ inscription.eleve.date_naissance|date:"d/m/Y" }}{% else %}—{% endif %}
+          </td>
+          <td style="font-size:12px;color:#64748b;">
+            {% if inscription.eleve.sexe == 'M' %}
+            <span class="badge badge-indigo">M</span>
+            {% else %}
+            <span class="badge badge-amber">F</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if inscription.statut == 'ACTIF' %}
+            <span class="badge badge-green">Actif</span>
+            {% elif inscription.statut == 'TRANSFERE' %}
+            <span class="badge badge-amber">Transféré</span>
+            {% else %}
+            <span class="badge badge-slate">{{ inscription.statut }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:10px;">
+    <div style="font-size:12px;color:#4b5563;">
+      Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      &nbsp;·&nbsp; {{ page_obj.paginator.count }} élève{% if page_obj.paginator.count > 1 %}s{% endif %}
+    </div>
+    <div style="display:flex;gap:4px;">
+      {% if page_obj.has_previous %}
+      <a href="?cycle={{ selected_cycle_id }}&classe={{ selected_classe_id }}&q={{ q|default:'' }}&page={{ page_obj.previous_page_number }}"
+         style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#94a3b8;text-decoration:none;font-size:13px;transition:background .13s;"
+         hx-get="{% url 'eleves_list' %}?cycle={{ selected_cycle_id }}&classe={{ selected_classe_id }}&q={{ q|default:'' }}&page={{ page_obj.previous_page_number }}"
+         hx-target="#eleves-table"
+         hx-push-url="true">
+        &#8249;
+      </a>
+      {% else %}
+      <span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);color:#374151;font-size:13px;">&#8249;</span>
+      {% endif %}
+
+      {% for num in page_obj.paginator.page_range %}
+        {% if num == page_obj.number %}
+        <span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#6366f1;color:#fff;font-size:12px;font-weight:700;">{{ num }}</span>
+        {% elif num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+        <a href="?cycle={{ selected_cycle_id }}&classe={{ selected_classe_id }}&q={{ q|default:'' }}&page={{ num }}"
+           style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#94a3b8;text-decoration:none;font-size:12px;transition:background .13s;"
+           hx-get="{% url 'eleves_list' %}?cycle={{ selected_cycle_id }}&classe={{ selected_classe_id }}&q={{ q|default:'' }}&page={{ num }}"
+           hx-target="#eleves-table"
+           hx-push-url="true">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+      <a href="?cycle={{ selected_cycle_id }}&classe={{ selected_classe_id }}&q={{ q|default:'' }}&page={{ page_obj.next_page_number }}"
+         style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#94a3b8;text-decoration:none;font-size:13px;transition:background .13s;"
+         hx-get="{% url 'eleves_list' %}?cycle={{ selected_cycle_id }}&classe={{ selected_classe_id }}&q={{ q|default:'' }}&page={{ page_obj.next_page_number }}"
+         hx-target="#eleves-table"
+         hx-push-url="true">
+        &#8250;
+      </a>
+      {% else %}
+      <span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);color:#374151;font-size:13px;">&#8250;</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="card" style="text-align:center;padding:48px 20px;">
+    <div style="font-size:13px;font-weight:600;color:#4b5563;">Aucun élève trouvé</div>
+    {% if q %}<div style="font-size:12px;color:#374151;margin-top:5px;">Aucun résultat pour "{{ q }}"</div>{% endif %}
+  </div>
+  {% endif %}
+
+{% elif selected_cycle_id %}
+<div class="card" style="text-align:center;padding:48px 20px;">
+  <div style="font-size:13px;font-weight:600;color:#4b5563;">Sélectionnez une classe</div>
+  <div style="font-size:12px;color:#374151;margin-top:5px;">Choisissez une classe dans la liste ci-dessus.</div>
+</div>
+{% endif %}

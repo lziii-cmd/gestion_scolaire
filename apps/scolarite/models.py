@@ -16,11 +16,13 @@ def generer_code_identification():
 
 
 class StatutInscription(models.TextChoices):
-    ACTIF = 'ACTIF', 'Actif'
-    TRANSFERE = 'TRANSFERE', 'Transféré'
-    SORTI = 'SORTI', 'Sorti'
-    ADMIS = 'ADMIS', 'Admis (fin d\'année)'
-    REDOUBLANT = 'REDOUBLANT', 'Redoublant'
+    EN_ATTENTE  = 'EN_ATTENTE',  'En attente de validation'
+    ACTIF       = 'ACTIF',       'Actif'
+    REJETE      = 'REJETE',      'Rejeté'
+    TRANSFERE   = 'TRANSFERE',   'Transféré'
+    SORTI       = 'SORTI',       'Sorti'
+    ADMIS       = 'ADMIS',       'Admis (fin d\'année)'
+    REDOUBLANT  = 'REDOUBLANT',  'Redoublant'
 
 
 class Eleve(models.Model):
@@ -92,6 +94,18 @@ class Inscription(models.Model):
         max_length=8, default=generer_code_identification, unique=True
     )
     email_genere = models.EmailField(blank=True)
+
+    # Traçabilité de la création / validation
+    inscrit_par = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='inscriptions_creees'
+    )
+    valide_par = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='inscriptions_validees'
+    )
+    date_validation = models.DateTimeField(null=True, blank=True)
+    motif_rejet = models.TextField(blank=True)
 
     # Décision de fin d'année
     decision_passage = models.CharField(

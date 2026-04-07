@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" x-data="{ sidebarOpen: true, mobileOpen: false }">
+<html lang="fr" x-data="{ sidebarOpen: true }">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -7,222 +7,683 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'sans-serif'] },
-          colors: {
-            brand: {
-              50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe',
-              300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1',
-              600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81',
-            },
-            sidebar: '#0f172a',
-          },
-          boxShadow: {
-            'card': '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 4px 16px 0 rgb(0 0 0 / 0.06)',
-            'card-hover': '0 4px 6px -1px rgb(0 0 0 / 0.07), 0 10px 32px 0 rgb(0 0 0 / 0.10)',
-          }
-        }
-      }
-    }
-  </script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    [x-cloak] { display: none !important; }
-    .sidebar-item { @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer; }
-    .sidebar-item:hover { @apply bg-white/10 text-white; }
-    .sidebar-item.active { @apply bg-brand-500 text-white shadow-lg shadow-brand-500/30; }
-    .sidebar-item:not(.active) { @apply text-slate-400; }
-    .card { @apply bg-white rounded-2xl shadow-card border border-slate-100 p-6; }
-    .btn-primary { @apply inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-all duration-150 shadow-sm hover:shadow-md; }
-    .btn-secondary { @apply inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm px-4 py-2.5 rounded-xl border border-slate-200 transition-all duration-150; }
-    .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold; }
-    .input { @apply w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all; }
-    .table-row { @apply border-b border-slate-50 hover:bg-slate-50/80 transition-colors duration-100; }
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    /* HTMX loading */
-    .htmx-indicator { opacity: 0; transition: opacity 200ms; }
-    .htmx-request .htmx-indicator { opacity: 1; }
-    /* Page transition */
-    .page-content { animation: fadeIn 0.2s ease-out; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080d16;
+      --bg-card:   #0e1422;
+      --bg-sidebar:#0c1220;
+      --border:    rgba(255,255,255,0.06);
+      --border-hov:rgba(255,255,255,0.11);
+      --text-1:    #e2e8f0;
+      --text-2:    #64748b;
+      --text-3:    #374151;
+      --brand:     #6366f1;
+      --brand-hov: #4f46e5;
+    }
+
+    html, body {
+      overflow-x: hidden;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text-1);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ─── SIDEBAR ─────────────────────────────────────────── */
+    .sidebar {
+      position: fixed;
+      top: 0; bottom: 0; left: 0; z-index: 50;
+      height: 100vh;
+      display: flex; flex-direction: column;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      transition: width .28s cubic-bezier(.4,0,.2,1);
+      overflow: hidden;
+      will-change: width;
+    }
+    .sidebar.open   { width: 236px; }
+    .sidebar.closed { width: 64px; }
+
+    /* logo */
+    .sb-logo {
+      display: flex; align-items: center; gap: 11px;
+      padding: 16px 13px;
+      border-bottom: 1px solid var(--border);
+      min-height: 62px;
+      flex-shrink: 0;
+    }
+    .sb-logo-icon {
+      flex-shrink: 0;
+      width: 34px; height: 34px; border-radius: 10px;
+      background: linear-gradient(135deg,#6366f1,#8b5cf6);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 18px rgba(99,102,241,.32);
+    }
+    .sb-logo-text {
+      overflow: hidden; white-space: nowrap;
+      transition: opacity .18s, width .28s;
+    }
+    .sidebar.closed .sb-logo-text { opacity:0; width:0; }
+    .sb-logo-text strong { display:block; font-size:13px; font-weight:700; color:#f1f5f9; }
+    .sb-logo-text span   { font-size:11px; color: var(--text-3); }
+
+    /* etab pill */
+    .sb-etab {
+      margin: 10px 8px 0;
+      padding: 9px 11px;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: opacity .18s, max-height .28s, margin .28s, padding .28s;
+      max-height: 80px;
+    }
+    .sidebar.closed .sb-etab { opacity:0; max-height:0; margin:0; padding:0; border:none; }
+    .sb-etab-label { font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); margin-bottom:3px; }
+    .sb-etab-name  { font-size:12px; font-weight:600; color:#f1f5f9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sb-etab-sigle { font-size:10px; font-weight:600; color: var(--brand); margin-top:1px; }
+
+    /* sections */
+    .sb-section {
+      padding: 14px 10px 3px;
+      font-size: 9.5px; font-weight: 700;
+      letter-spacing: .09em; text-transform: uppercase;
+      color: var(--text-3);
+      white-space: nowrap;
+      transition: opacity .15s, max-height .2s, padding .2s;
+      max-height: 32px; overflow: hidden;
+    }
+    .sidebar.closed .sb-section { opacity:0; max-height:0; padding:0; }
+
+    /* nav */
+    .sb-nav { flex:1; padding: 6px 7px; overflow-y:auto; }
+
+    .sb-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 9px;
+      border-radius: 8px;
+      font-size: 12.5px; font-weight: 500;
+      color: var(--text-2);
+      text-decoration: none;
+      transition: background .13s, color .13s;
+      white-space: nowrap;
+      margin-bottom: 1px;
+      border: 1px solid transparent;
+    }
+    .sb-item svg { flex-shrink:0; width:17px; height:17px; }
+    .sb-item:hover { background:rgba(255,255,255,0.05); color:#cbd5e1; }
+    .sb-item.active {
+      background: rgba(99,102,241,.13);
+      color: #818cf8;
+      border-color: rgba(99,102,241,.22);
+    }
+    .sidebar.closed .sb-item { justify-content:center; padding: 8px 0; }
+    .sb-label { transition: opacity .15s, width .28s; overflow:hidden; }
+    .sidebar.closed .sb-label { opacity:0; width:0; }
+    .sb-badge-wrap { transition: opacity .15s; }
+    .sidebar.closed .sb-badge-wrap { opacity:0; }
+
+    /* user */
+    .sb-user {
+      border-top: 1px solid var(--border);
+      padding: 8px 7px;
+      flex-shrink: 0;
+    }
+    .sb-user-row {
+      display:flex; align-items:center; gap:9px;
+      padding: 7px 9px; border-radius:8px;
+      transition: background .13s;
+    }
+    .sb-user-row:hover { background: rgba(255,255,255,0.04); }
+    .sb-avatar {
+      flex-shrink:0; width:32px; height:32px; border-radius:8px;
+      background:linear-gradient(135deg,#6366f1,#8b5cf6);
+      display:flex; align-items:center; justify-content:center;
+      font-size:10px; font-weight:700; color:white;
+    }
+    .sb-user-info { flex:1; overflow:hidden; min-width:0; transition:opacity .15s, width .28s; white-space:nowrap; }
+    .sidebar.closed .sb-user-info { opacity:0; width:0; }
+    .sb-user-name  { font-size:11.5px; font-weight:600; color:#f1f5f9; overflow:hidden; text-overflow:ellipsis; }
+    .sb-user-email { font-size:10.5px; color:var(--text-3); overflow:hidden; text-overflow:ellipsis; }
+    .sb-logout {
+      flex-shrink:0; padding:4px; border-radius:6px;
+      color:var(--text-3); text-decoration:none;
+      transition: color .13s, background .13s, opacity .15s;
+      opacity:0;
+    }
+    .sb-user-row:hover .sb-logout { opacity:1; }
+    .sb-logout:hover { color:#d1d5db; background:rgba(255,255,255,0.06); }
+    .sidebar.closed .sb-logout { pointer-events:none; }
+
+    /* toggle pill — en bas de sidebar pour éviter d'empiéter sur la topbar */
+    .sb-toggle {
+      display:none;
+    }
+
+    /* ─── MAIN ─────────────────────────────────────────────── */
+    /* Default open — évite le flash avant Alpine.js */
+    .main {
+      margin-left: 236px;
+      transition: margin-left .28s cubic-bezier(.4,0,.2,1);
+      min-height: 100vh;
+    }
+    .main.ml-closed { margin-left: 64px; }
+
+    /* ─── TOPBAR ─────────────────────────────────────────────*/
+    .topbar {
+      position:sticky; top:0; z-index:40;
+      height:58px;
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 0 22px;
+      background: rgba(8,13,22,.9);
+      backdrop-filter:blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-title { font-size:13.5px; font-weight:600; color:#f1f5f9; line-height:1.2; }
+    .topbar-sub   { font-size:11px; color:var(--text-3); margin-top:1px; }
+
+    .topbar-search {
+      display:flex; align-items:center; gap:7px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.07);
+      border-radius:8px;
+      padding:0 11px;
+      transition:border-color .13s, background .13s;
+    }
+    .topbar-search:focus-within {
+      border-color:rgba(99,102,241,.4);
+      background:rgba(255,255,255,0.06);
+    }
+    .topbar-search svg { color:var(--text-3); width:14px; height:14px; flex-shrink:0; }
+    .topbar-search input {
+      background:none; border:none; outline:none;
+      font-size:12.5px; color:#e2e8f0; width:170px; padding:7px 0;
+      font-family:'Inter',sans-serif;
+    }
+    .topbar-search input::placeholder { color:var(--text-3); }
+
+    .topbar-btn {
+      position:relative;
+      width:34px; height:34px;
+      border-radius:8px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.07);
+      color:var(--text-2);
+      display:flex; align-items:center; justify-content:center;
+      transition:background .13s, color .13s;
+      text-decoration:none;
+    }
+    .topbar-btn:hover { background:rgba(255,255,255,0.07); color:#d1d5db; }
+    .topbar-btn svg { width:15px; height:15px; }
+
+    /* ─── CARDS ──────────────────────────────────────────────*/
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 20px;
+      transition: border-color .18s;
+    }
+    .card:hover { border-color: var(--border-hov); }
+
+    /* ─── BUTTONS ────────────────────────────────────────────*/
+    .btn {
+      display:inline-flex; align-items:center; gap:6px;
+      font-size:12.5px; font-weight:600;
+      padding: 8px 15px; border-radius:8px;
+      border:none; cursor:pointer;
+      text-decoration:none; transition:all .13s;
+    }
+    .btn svg { width:14px; height:14px; }
+    .btn-primary { background:var(--brand); color:#fff; }
+    .btn-primary:hover { background:var(--brand-hov); transform:translateY(-1px); }
+    .btn-secondary {
+      background:rgba(255,255,255,0.05); color:#94a3b8;
+      border:1px solid rgba(255,255,255,0.08);
+    }
+    .btn-secondary:hover { background:rgba(255,255,255,0.08); color:#e2e8f0; }
+    .btn-danger { background:rgba(239,68,68,.12); color:#f87171; border:1px solid rgba(239,68,68,.2); }
+    .btn-danger:hover { background:rgba(239,68,68,.2); }
+
+    /* ─── BADGES ─────────────────────────────────────────────*/
+    .badge {
+      display:inline-flex; align-items:center;
+      padding:2px 8px; border-radius:999px;
+      font-size:11px; font-weight:600;
+    }
+    .badge-green  { background:rgba(16,185,129,.1);  color:#34d399; border:1px solid rgba(16,185,129,.2); }
+    .badge-blue   { background:rgba(59,130,246,.1);  color:#60a5fa; border:1px solid rgba(59,130,246,.2); }
+    .badge-amber  { background:rgba(245,158,11,.1);  color:#fbbf24; border:1px solid rgba(245,158,11,.2); }
+    .badge-red    { background:rgba(239,68,68,.1);   color:#f87171; border:1px solid rgba(239,68,68,.2); }
+    .badge-indigo { background:rgba(99,102,241,.1);  color:#818cf8; border:1px solid rgba(99,102,241,.2); }
+    .badge-slate  { background:rgba(100,116,139,.1); color:#94a3b8; border:1px solid rgba(100,116,139,.2); }
+    .badge-purple { background:rgba(168,85,247,.1);  color:#c084fc; border:1px solid rgba(168,85,247,.2); }
+
+    /* ─── INPUTS ─────────────────────────────────────────────*/
+    .input {
+      width:100%;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      color: var(--text-1); font-size:13px;
+      border-radius:8px; padding:8px 12px;
+      outline:none; transition:border-color .13s, background .13s;
+      font-family:'Inter',sans-serif;
+    }
+    .input:focus {
+      border-color:rgba(99,102,241,.5);
+      background:rgba(255,255,255,0.06);
+      box-shadow:0 0 0 3px rgba(99,102,241,.08);
+    }
+    .input::placeholder { color:var(--text-3); }
+    label { font-size:12px; font-weight:600; color:#94a3b8; display:block; margin-bottom:5px; }
+
+    /* ─── TABLE ──────────────────────────────────────────────*/
+    .table-wrap { border:1px solid var(--border); border-radius:13px; overflow:hidden; }
+    table { width:100%; border-collapse:collapse; }
+    thead { background:rgba(255,255,255,0.02); }
+    th {
+      font-size:10.5px; font-weight:700;
+      letter-spacing:.07em; text-transform:uppercase;
+      color:var(--text-3); padding:10px 15px;
+      text-align:left; border-bottom:1px solid var(--border);
+    }
+    .tr { border-bottom:1px solid rgba(255,255,255,0.04); transition:background .1s; }
+    .tr:last-child { border-bottom:none; }
+    .tr:hover { background:rgba(255,255,255,0.025); }
+    td { padding:11px 15px; font-size:12.5px; color:#6b7280; }
+    .cell-main { color:#e2e8f0; font-weight:500; }
+
+    /* ─── ALERTS ─────────────────────────────────────────────*/
+    .alert {
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:11px 15px; border-radius:9px;
+      font-size:12.5px; font-weight:500; margin-bottom:6px;
+    }
+    .alert-success { background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.2); color:#6ee7b7; }
+    .alert-error   { background:rgba(239,68,68,.08);  border:1px solid rgba(239,68,68,.2);  color:#fca5a5; }
+
+    /* ─── MISC ───────────────────────────────────────────────*/
+    ::-webkit-scrollbar { width:4px; height:4px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08); border-radius:99px; }
+    ::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.14); }
+
+    [x-cloak] { display:none!important; }
+    .htmx-indicator { opacity:0; transition:opacity 200ms; }
+    .htmx-request .htmx-indicator { opacity:1; }
+    .page-content { animation:pageIn .2s ease-out; }
+    @keyframes pageIn { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
+
+    /* stat card */
+    .stat-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+    .stat-icon svg { width:19px; height:19px; }
+    .stat-val  { font-size:26px; font-weight:800; color:#f1f5f9; line-height:1.1; }
+    .stat-lbl  { font-size:12px; color:var(--text-2); margin-top:3px; }
+
+    /* progress */
+    .pbar { height:3px; border-radius:99px; background:rgba(255,255,255,0.06); overflow:hidden; margin-top:12px; }
+    .pbar-fill { height:100%; border-radius:99px; }
+
+    /* section header */
+    .sh { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .sh-title { font-size:13.5px; font-weight:600; color:#f1f5f9; }
+    .sh-sub   { font-size:11px; color:var(--text-3); margin-top:1px; }
+
+    /* quick action item */
+    .qa-item {
+      display:flex; align-items:center; gap:11px;
+      padding:11px 13px; border-radius:9px;
+      border:1px solid var(--border);
+      text-decoration:none;
+      transition:border-color .15s, background .15s;
+    }
+    .qa-item:hover { border-color:var(--border-hov); background:rgba(255,255,255,0.02); }
+    .qa-icon { width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .qa-icon svg { width:15px; height:15px; }
+    .qa-title { font-size:12.5px; font-weight:600; color:#e2e8f0; }
+    .qa-sub   { font-size:11px; color:var(--text-2); }
+    .qa-arrow { flex-shrink:0; color:var(--text-3); width:14px; height:14px; }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-slate-50 font-sans antialiased" style="font-family: 'Inter', sans-serif;">
+<body>
 
-  <!-- SIDEBAR -->
-  <aside class="fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 ease-in-out"
-         :class="sidebarOpen ? 'w-64' : 'w-18'"
-         style="background: #0f172a;">
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" :class="sidebarOpen ? 'open' : 'closed'">
 
-    <!-- Logo -->
-    <div class="flex items-center gap-3 px-4 py-5 border-b border-white/10">
-      <div class="flex-shrink-0 w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/30">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+    <div class="sb-logo">
+      <div class="sb-logo-icon">
+        <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2">
+          <path d="M12 14l9-5-9-5-9 5 9 5z"/>
+          <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
         </svg>
       </div>
-      <div x-show="sidebarOpen" x-cloak x-transition:enter="transition-opacity duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
-        <p class="text-white font-bold text-sm leading-tight">GestScol</p>
-        <p class="text-slate-400 text-xs">Gestion Scolaire</p>
+      <div class="sb-logo-text">
+        <strong>GestScol</strong>
+        <span>Gestion Scolaire</span>
       </div>
     </div>
 
-    <!-- Établissement selector -->
     {% if etablissement %}
-    <div x-show="sidebarOpen" x-cloak class="mx-3 mt-4 mb-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10">
-      <p class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Établissement</p>
-      <p class="text-white text-sm font-semibold truncate">{{ etablissement.nom }}</p>
-      <span class="text-brand-400 text-xs font-medium uppercase tracking-wide">{{ etablissement.sigle }}</span>
+    <div class="sb-etab">
+      <div class="sb-etab-label">Établissement</div>
+      <div class="sb-etab-name">{{ etablissement.nom }}</div>
+      <div class="sb-etab-sigle">{{ etablissement.sigle }}</div>
     </div>
     {% endif %}
 
-    <!-- Navigation -->
-    <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-1">
+    <nav class="sb-nav">
 
-      <!-- Vue d'ensemble -->
-      <p x-show="sidebarOpen" x-cloak class="px-3 mb-2 text-slate-500 text-xs font-semibold uppercase tracking-wider">Vue d'ensemble</p>
-      <a href="{% url 'dashboard' %}" class="sidebar-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-          <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+      <div class="sb-section">Vue d'ensemble</div>
+      <a href="{% url 'dashboard' %}" class="sb-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+          <rect x="14" y="14" width="7" height="7" rx="1.5"/>
         </svg>
-        <span x-show="sidebarOpen" x-cloak>Dashboard</span>
+        <span class="sb-label">Tableau de bord</span>
       </a>
 
-      <!-- Scolarité -->
-      <p x-show="sidebarOpen" x-cloak class="px-3 pt-4 mb-2 text-slate-500 text-xs font-semibold uppercase tracking-wider">Scolarité</p>
-      <a href="{% url 'eleves_list' %}" class="sidebar-item {% if request.resolver_match.url_name == 'eleves_list' %}active{% endif %}">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+      {% if perm_eleves %}
+      <div class="sb-section">Scolarité</div>
+      <a href="{% url 'eleves_list' %}" class="sb-item {% if request.resolver_match.url_name == 'eleves_list' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
         </svg>
-        <span x-show="sidebarOpen" x-cloak>Élèves</span>
+        <span class="sb-label">Élèves</span>
       </a>
+      {% endif %}
 
-      <!-- Pédagogie -->
-      <p x-show="sidebarOpen" x-cloak class="px-3 pt-4 mb-2 text-slate-500 text-xs font-semibold uppercase tracking-wider">Pédagogie</p>
-      <a href="{% url 'notes_list' %}" class="sidebar-item {% if request.resolver_match.url_name == 'notes_list' %}active{% endif %}">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+      {% if perm_pedagogie %}
+      <div class="sb-section">Pédagogie</div>
+      <a href="{% url 'professeurs_list' %}" class="sb-item {% if request.resolver_match.url_name == 'professeurs_list' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5"/>
+        </svg>
+        <span class="sb-label">Professeurs</span>
+      </a>
+      <a href="{% url 'notes_list' %}" class="sb-item {% if request.resolver_match.url_name == 'notes_list' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
         </svg>
-        <span x-show="sidebarOpen" x-cloak>Notes</span>
+        <span class="sb-label">Notes</span>
       </a>
-      <a href="{% url 'bulletins_list' %}" class="sidebar-item {% if request.resolver_match.url_name == 'bulletins_list' %}active{% endif %}">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+      <a href="{% url 'bulletins_list' %}" class="sb-item {% if request.resolver_match.url_name == 'bulletins_list' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
         </svg>
-        <span x-show="sidebarOpen" x-cloak>Bulletins</span>
+        <span class="sb-label">Bulletins</span>
       </a>
+      <a href="{% url 'absences_list' %}" class="sb-item {% if request.resolver_match.url_name == 'absences_list' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+        </svg>
+        <span class="sb-label">Absences</span>
+      </a>
+      <a href="{% url 'emploi_du_temps' %}" class="sb-item {% if request.resolver_match.url_name == 'emploi_du_temps' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H18v-.008zm0 2.25h.008v.008H18V15z"/>
+        </svg>
+        <span class="sb-label">Emploi du temps</span>
+      </a>
+      {% endif %}
 
-      <!-- Finances -->
-      <p x-show="sidebarOpen" x-cloak class="px-3 pt-4 mb-2 text-slate-500 text-xs font-semibold uppercase tracking-wider">Finances</p>
-      <a href="{% url 'finances_index' %}" class="sidebar-item {% if request.resolver_match.url_name == 'finances_index' %}active{% endif %}">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+      {% if perm_finances %}
+      <div class="sb-section">Finances</div>
+      <a href="{% url 'finances_index' %}" class="sb-item {% if request.resolver_match.url_name == 'finances_index' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
         </svg>
-        <span x-show="sidebarOpen" x-cloak>Finances</span>
+        <span class="sb-label">Finances</span>
       </a>
+      {% if nb_demandes_paiement_attente %}
+      <a href="{% url 'finances_validations' %}" class="sb-item {% if request.resolver_match.url_name == 'finances_validations' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span class="sb-label" style="flex:1;">Validations</span>
+        <span class="sb-badge-wrap" style="background:#f59e0b;color:#fff;font-size:9px;font-weight:700;min-width:17px;height:17px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px;flex-shrink:0;">{{ nb_demandes_paiement_attente }}</span>
+      </a>
+      {% endif %}
+      {% endif %}
 
-      <!-- Notifications -->
-      <p x-show="sidebarOpen" x-cloak class="px-3 pt-4 mb-2 text-slate-500 text-xs font-semibold uppercase tracking-wider">Système</p>
-      <a href="{% url 'notifications_list' %}" class="sidebar-item {% if request.resolver_match.url_name == 'notifications_list' %}active{% endif %} relative">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+      {% if perm_technique %}
+      <div class="sb-section">Technique</div>
+      <a href="{% url 'dashboard' %}" class="sb-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z"/>
+        </svg>
+        <span class="sb-label">Tableau de bord</span>
+      </a>
+      <a href="/admin/" target="_blank" class="sb-item">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+        <span class="sb-label">Django Admin</span>
+      </a>
+      <a href="{% url 'extra_usage' %}" class="sb-item {% if request.resolver_match.url_name == 'extra_usage' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+        </svg>
+        <span class="sb-label">Comptes de test</span>
+      </a>
+      <a href="{% url 'parametres' %}" class="sb-item {% if request.resolver_match.url_name == 'parametres' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <span class="sb-label">Paramètres</span>
+      </a>
+      {% endif %}
+
+      {% if not perm_technique %}
+      <div class="sb-section">Système</div>
+      <a href="{% url 'notifications_list' %}" class="sb-item {% if request.resolver_match.url_name == 'notifications_list' %}active{% endif %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
         </svg>
-        <span x-show="sidebarOpen" x-cloak class="flex-1">Notifications</span>
+        <span class="sb-label" style="flex:1;">Notifications</span>
         {% if notifs_non_lues %}
-        <span class="flex-shrink-0 w-5 h-5 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{{ notifs_non_lues }}</span>
+        <span class="sb-badge-wrap" style="background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:17px;height:17px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px;flex-shrink:0;">{{ notifs_non_lues }}</span>
         {% endif %}
       </a>
+      {% endif %}{# fin not perm_technique #}
     </nav>
 
-    <!-- User profile -->
-    <div class="px-3 py-4 border-t border-white/10">
-      <div class="flex items-center gap-3 px-3 py-2">
-        <div class="w-8 h-8 rounded-xl bg-brand-500 flex items-center justify-center flex-shrink-0">
-          <span class="text-white text-xs font-bold">{{ request.user.prenom.0|upper }}{{ request.user.nom.0|upper }}</span>
+    <div class="sb-user">
+      <div class="sb-user-row">
+        <div class="sb-avatar">{{ request.user.prenom.0|upper }}{{ request.user.nom.0|upper }}</div>
+        <div class="sb-user-info">
+          <div class="sb-user-name">{{ request.user.prenom }} {{ request.user.nom }}</div>
+          <div class="sb-user-email">{{ request.user.email }}</div>
         </div>
-        <div x-show="sidebarOpen" x-cloak class="flex-1 min-w-0">
-          <p class="text-white text-sm font-semibold truncate">{{ request.user.prenom }} {{ request.user.nom }}</p>
-          <p class="text-slate-400 text-xs truncate">{{ request.user.email }}</p>
-        </div>
-        <a x-show="sidebarOpen" x-cloak href="{% url 'logout' %}" class="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <a href="{% url 'logout' %}" class="sb-logout" title="Déconnexion">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>
           </svg>
         </a>
       </div>
     </div>
 
-    <!-- Toggle sidebar -->
-    <button @click="sidebarOpen = !sidebarOpen"
-            class="absolute -right-3 top-8 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition-shadow z-10">
-      <svg class="w-3 h-3 text-slate-500 transition-transform duration-300" :class="sidebarOpen ? '' : 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+    <button class="sb-toggle" @click="sidebarOpen = !sidebarOpen">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
       </svg>
     </button>
   </aside>
 
-  <!-- MAIN -->
-  <div class="transition-all duration-300 min-h-screen" :class="sidebarOpen ? 'ml-64' : 'ml-18'">
+  <!-- ═══ MAIN ═══ -->
+  <div class="main" :class="sidebarOpen ? '' : 'ml-closed'">
 
-    <!-- TOPBAR -->
-    <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-3">
-      <div class="flex items-center justify-between gap-4">
-
-        <!-- Page title -->
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <!-- Toggle sidebar — dans la topbar pour éviter le chevauchement -->
+        <button @click="sidebarOpen = !sidebarOpen"
+          style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#64748b;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .13s;"
+          :style="sidebarOpen ? '' : 'color:#818cf8;background:rgba(99,102,241,0.1);border-color:rgba(99,102,241,.3);'">
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/>
+          </svg>
+        </button>
         <div>
-          <h1 class="text-slate-900 font-semibold text-lg">{% block page_title %}Dashboard{% endblock %}</h1>
-          <p class="text-slate-400 text-xs">{% block page_subtitle %}{% endblock %}</p>
+          <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+          <div class="topbar-sub">{% block page_subtitle %}{% endblock %}</div>
         </div>
+      </div>
 
-        <div class="flex items-center gap-3">
-
-          <!-- Search -->
-          <div class="relative hidden md:block">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="topbar-search" id="topbar-search">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+          </svg>
+          <input type="text" placeholder="Rechercher..."/>
+        </div>
+        {% if tous_etablissements %}
+        <!-- Sélecteur d'établissement (Super Admin) -->
+        <div x-data="{ openEtab: false }" style="position:relative;">
+          <button @click="openEtab = !openEtab" @click.outside="openEtab = false"
+            style="display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);color:#cbd5e1;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all .15s;"
+            onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.14)';"
+            onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.09)';">
+            <!-- Icône building -->
+            <svg style="width:13px;height:13px;flex-shrink:0;color:#6366f1;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z"/>
             </svg>
-            <input type="text" placeholder="Rechercher..." class="pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl w-56 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"/>
+            <span>{% if etablissement %}{{ etablissement.sigle|default:etablissement.nom|truncatechars:14 }}{% else %}Tous les établissements{% endif %}</span>
+            <svg style="width:10px;height:10px;flex-shrink:0;opacity:.5;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+            </svg>
+          </button>
+
+          <div x-show="openEtab" x-cloak
+               style="position:absolute;top:calc(100% + 6px);left:0;min-width:220px;background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,.6);z-index:300;overflow:hidden;">
+            <!-- En-tête -->
+            <div style="padding:8px 12px 6px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#475569;">Établissements</div>
+            </div>
+            <div style="padding:4px;max-height:260px;overflow-y:auto;">
+              <!-- Vue globale -->
+              <a href="{% url 'reset_etablissement' %}"
+                 style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;text-decoration:none;font-size:12.5px;font-weight:{% if not etablissement %}600{% else %}400{% endif %};color:{% if not etablissement %}#e2e8f0{% else %}#94a3b8{% endif %};background:{% if not etablissement %}rgba(99,102,241,0.12){% else %}transparent{% endif %};transition:all .1s;"
+                 onmouseover="this.style.background='rgba(99,102,241,0.1)';this.style.color='#e2e8f0';"
+                 onmouseout="this.style.background='{% if not etablissement %}rgba(99,102,241,0.12){% else %}transparent{% endif %}';this.style.color='{% if not etablissement %}#e2e8f0{% else %}#94a3b8{% endif %}';">
+                <div style="width:26px;height:26px;border-radius:6px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg style="width:12px;height:12px;color:#818cf8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+                  </svg>
+                </div>
+                <span>Tous les établissements</span>
+                {% if not etablissement %}<svg style="width:13px;height:13px;margin-left:auto;color:#818cf8;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>{% endif %}
+              </a>
+              <div style="height:1px;background:rgba(255,255,255,0.05);margin:3px 6px;"></div>
+              {% for etab in tous_etablissements %}
+              <a href="{% url 'changer_etablissement' etab.id %}"
+                 style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;text-decoration:none;font-size:12.5px;font-weight:{% if etablissement.id == etab.id %}600{% else %}400{% endif %};color:{% if etablissement.id == etab.id %}#e2e8f0{% else %}#94a3b8{% endif %};background:{% if etablissement.id == etab.id %}rgba(255,255,255,0.05){% else %}transparent{% endif %};transition:all .1s;"
+                 onmouseover="this.style.background='rgba(255,255,255,0.06)';this.style.color='#e2e8f0';"
+                 onmouseout="this.style.background='{% if etablissement.id == etab.id %}rgba(255,255,255,0.05){% else %}transparent{% endif %}';this.style.color='{% if etablissement.id == etab.id %}#e2e8f0{% else %}#94a3b8{% endif %}';">
+                <div style="width:26px;height:26px;border-radius:6px;background:#1e293b;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;font-weight:800;color:#64748b;">
+                  {{ etab.sigle|default:etab.nom|slice:":2"|upper }}
+                </div>
+                <div style="min-width:0;">
+                  <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ etab.nom|truncatechars:20 }}</div>
+                </div>
+                {% if etablissement.id == etab.id %}<svg style="width:13px;height:13px;margin-left:auto;color:#34d399;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>{% endif %}
+              </a>
+              {% endfor %}
+            </div>
           </div>
+        </div>
+        {% endif %}
 
-          <!-- Notifications bell -->
-          <a href="{% url 'notifications_list' %}" class="relative p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
-            </svg>
-            {% if notifs_non_lues %}
-            <span class="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{{ notifs_non_lues }}</span>
-            {% endif %}
-          </a>
+        <a href="{% url 'notifications_list' %}" class="topbar-btn">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+          </svg>
+          {% if notifs_non_lues %}
+          <span style="position:absolute;top:-2px;right:-2px;width:14px;height:14px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:50%;display:flex;align-items:center;justify-content:center;">{{ notifs_non_lues }}</span>
+          {% endif %}
+        </a>
+        <!-- Avatar + dropdown profil -->
+        <div x-data="{ open: false }" style="position:relative;">
+          <button @click="open = !open" @click.outside="open = false"
+            style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;box-shadow:0 0 0 2px transparent;transition:box-shadow .13s;"
+            :style="open ? 'box-shadow:0 0 0 2px rgba(99,102,241,.5);' : ''">
+            {{ request.user.prenom.0|upper }}{{ request.user.nom.0|upper }}
+          </button>
 
-          <!-- Avatar -->
-          <div class="w-8 h-8 rounded-xl bg-brand-500 flex items-center justify-center cursor-pointer">
-            <span class="text-white text-xs font-bold">{{ request.user.prenom.0|upper }}{{ request.user.nom.0|upper }}</span>
+          <!-- Dropdown -->
+          <div x-show="open" x-transition:enter="transition ease-out duration-100"
+               x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+               x-transition:leave="transition ease-in duration-75"
+               x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+               style="position:absolute;top:calc(100% + 8px);right:0;width:210px;background:#111827;border:1px solid rgba(255,255,255,0.09);border-radius:12px;box-shadow:0 20px 40px rgba(0,0,0,.5);z-index:200;overflow:hidden;">
+
+            <!-- Header utilisateur -->
+            <div style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;flex-shrink:0;">
+                  {{ request.user.prenom.0|upper }}{{ request.user.nom.0|upper }}
+                </div>
+                <div style="min-width:0;">
+                  <div style="font-size:12.5px;font-weight:700;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ request.user.prenom }} {{ request.user.nom }}</div>
+                  <div style="font-size:10.5px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ request.user.email }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Liens -->
+            <div style="padding:6px;">
+              <a href="{% url 'mon_profil' %}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;text-decoration:none;transition:background .12s;color:#94a3b8;font-size:12.5px;font-weight:500;"
+                 onmouseover="this.style.background='rgba(255,255,255,0.05)';this.style.color='#e2e8f0';"
+                 onmouseout="this.style.background='';this.style.color='#94a3b8';">
+                <svg style="width:14px;height:14px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+                </svg>
+                Mon profil
+              </a>
+              <a href="{% url 'parametres' %}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;text-decoration:none;transition:background .12s;color:#94a3b8;font-size:12.5px;font-weight:500;"
+                 onmouseover="this.style.background='rgba(255,255,255,0.05)';this.style.color='#e2e8f0';"
+                 onmouseout="this.style.background='';this.style.color='#94a3b8';">
+                <svg style="width:14px;height:14px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                Paramètres
+              </a>
+
+              <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 0;"></div>
+
+              <a href="{% url 'logout' %}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;text-decoration:none;transition:background .12s;color:#f87171;font-size:12.5px;font-weight:500;"
+                 onmouseover="this.style.background='rgba(239,68,68,0.08)';"
+                 onmouseout="this.style.background='';">
+                <svg style="width:14px;height:14px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>
+                </svg>
+                Déconnexion
+              </a>
+            </div>
           </div>
         </div>
       </div>
     </header>
 
-    <!-- Messages Django -->
     {% if messages %}
-    <div class="px-6 pt-4">
+    <div style="padding:16px 22px 0;">
       {% for message in messages %}
-      <div x-data="{ show: true }" x-show="show" x-transition
-           class="flex items-center justify-between gap-3 p-4 rounded-xl mb-2
-                  {% if message.tags == 'error' %}bg-rose-50 border border-rose-200 text-rose-700
-                  {% else %}bg-emerald-50 border border-emerald-200 text-emerald-700{% endif %}">
-        <span class="text-sm font-medium">{{ message }}</span>
-        <button @click="show = false" class="opacity-60 hover:opacity-100">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <div x-data="{show:true}" x-show="show" x-transition
+           class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
+        <span>{{ message }}</span>
+        <button @click="show=false" style="opacity:.6;cursor:pointer;background:none;border:none;color:inherit;display:flex;">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </button>
@@ -231,8 +692,7 @@
     </div>
     {% endif %}
 
-    <!-- PAGE CONTENT -->
-    <main class="p-6 page-content">
+    <main style="padding:22px;min-width:0;overflow-x:hidden;" class="page-content">
       {% block content %}{% endblock %}
     </main>
   </div>

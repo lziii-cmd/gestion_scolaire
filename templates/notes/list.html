@@ -1,99 +1,353 @@
 {% extends "base.html" %}
 
 {% block title %}Notes{% endblock %}
-{% block page_title %}Modifications de notes{% endblock %}
-{% block page_subtitle %}Demandes de modification en attente de validation{% endblock %}
+{% block page_title %}Notes{% endblock %}
+{% block page_subtitle %}Saisie, catalogue et modifications de notes{% endblock %}
 
 {% block content %}
-<div x-data="{ activeTab: 'en_attente' }">
+<div x-data="{ activeTab: '{{ active_tab }}' }">
 
-  <!-- Tabs -->
-  <div class="flex gap-1 bg-slate-100 p-1 rounded-2xl w-fit mb-6">
-    <button @click="activeTab = 'en_attente'"
-            :class="activeTab === 'en_attente' ? 'bg-white shadow-sm text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-700'"
-            class="flex items-center gap-2 px-4 py-2 text-sm rounded-xl transition-all">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
-      En attente
-      {% if modifs_en_attente %}
-      <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-amber-100 text-amber-700 rounded-full">
-        {{ modifs_en_attente|length }}
-      </span>
-      {% endif %}
-    </button>
-    <button @click="activeTab = 'historique'"
-            :class="activeTab === 'historique' ? 'bg-white shadow-sm text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-700'"
-            class="flex items-center gap-2 px-4 py-2 text-sm rounded-xl transition-all">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/>
-      </svg>
-      Historique
-    </button>
+  <!-- ═══ TABS ═══ -->
+  <div style="display:flex;gap:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);padding:4px;border-radius:10px;width:fit-content;margin-bottom:22px;">
+    <a href="{% url 'notes_list' %}?tab=saisie{% if selected_cycle_id %}&cycle={{ selected_cycle_id }}{% endif %}{% if selected_classe_id %}&classe={{ selected_classe_id }}{% endif %}" style="text-decoration:none;">
+      <button @click="activeTab = 'saisie'"
+              :style="activeTab === 'saisie' ? 'background:rgba(99,102,241,.18);color:#818cf8;border-color:rgba(99,102,241,.25);' : 'color:#4b5563;background:transparent;border-color:transparent;'"
+              style="display:flex;align-items:center;gap:7px;padding:7px 14px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid;cursor:pointer;transition:all .13s;">
+        <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+        </svg>
+        Saisir des notes
+      </button>
+    </a>
+    <a href="{% url 'notes_list' %}?tab=catalogue" style="text-decoration:none;">
+      <button @click="activeTab = 'catalogue'"
+              :style="activeTab === 'catalogue' ? 'background:rgba(99,102,241,.18);color:#818cf8;border-color:rgba(99,102,241,.25);' : 'color:#4b5563;background:transparent;border-color:transparent;'"
+              style="display:flex;align-items:center;gap:7px;padding:7px 14px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid;cursor:pointer;transition:all .13s;">
+        <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+        </svg>
+        Catalogue des matières
+      </button>
+    </a>
+    <a href="{% url 'notes_list' %}?tab=modifications" style="text-decoration:none;">
+      <button @click="activeTab = 'modifications'"
+              :style="activeTab === 'modifications' ? 'background:rgba(99,102,241,.18);color:#818cf8;border-color:rgba(99,102,241,.25);' : 'color:#4b5563;background:transparent;border-color:transparent;'"
+              style="display:flex;align-items:center;gap:7px;padding:7px 14px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid;cursor:pointer;transition:all .13s;">
+        <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Modifications
+        {% if modifs_en_attente %}
+        <span style="background:#f59e0b;color:#000;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px;">{{ modifs_en_attente|length }}</span>
+        {% endif %}
+      </button>
+    </a>
   </div>
 
-  <!-- EN ATTENTE -->
-  <div x-show="activeTab === 'en_attente'">
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 1 : SAISIR DES NOTES
+  ════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab === 'saisie'">
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div class="alert {% if msg.tags == 'success' %}alert-success{% else %}alert-error{% endif %}" style="margin-bottom:14px;">
+      {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Étape 1 : Choisir le cycle -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:22px;">
+      {% for item in cycles %}
+      {% with c=item.cycle %}
+      <a href="{% url 'notes_list' %}?tab=saisie&cycle={{ c.id }}" style="text-decoration:none;">
+        <div class="card" style="padding:13px 15px;cursor:pointer;
+          {% if selected_cycle_id == c.id|stringformat:'s' %}
+            {% if c.type_cycle == 'PRESCOLAIRE' %}border-color:rgba(16,185,129,.4);
+            {% elif c.type_cycle == 'ELEMENTAIRE' %}border-color:rgba(14,165,233,.4);
+            {% elif c.type_cycle == 'COLLEGE' %}border-color:rgba(99,102,241,.4);
+            {% elif c.type_cycle == 'LYCEE' %}border-color:rgba(245,158,11,.4);
+            {% endif %}
+          {% endif %}">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+              {% if c.type_cycle == 'PRESCOLAIRE' %}background:rgba(16,185,129,.12);
+              {% elif c.type_cycle == 'ELEMENTAIRE' %}background:rgba(14,165,233,.12);
+              {% elif c.type_cycle == 'COLLEGE' %}background:rgba(99,102,241,.12);
+              {% elif c.type_cycle == 'LYCEE' %}background:rgba(245,158,11,.12);
+              {% else %}background:rgba(255,255,255,0.05);{% endif %}">
+              <svg style="width:14px;height:14px;
+                {% if c.type_cycle == 'PRESCOLAIRE' %}color:#34d399;
+                {% elif c.type_cycle == 'ELEMENTAIRE' %}color:#38bdf8;
+                {% elif c.type_cycle == 'COLLEGE' %}color:#818cf8;
+                {% elif c.type_cycle == 'LYCEE' %}color:#fbbf24;
+                {% else %}color:#6b7280;{% endif %}"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5"/>
+              </svg>
+            </div>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:#f1f5f9;">{{ c.get_type_cycle_display }}</div>
+              <div style="font-size:10.5px;color:#4b5563;">{{ item.nb_classes }} cl.</div>
+            </div>
+          </div>
+        </div>
+      </a>
+      {% endwith %}
+      {% endfor %}
+    </div>
+
+    {% if classes_du_cycle %}
+    <!-- Étape 2 : Classes -->
+    <div style="margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="width:3px;height:16px;border-radius:99px;background:#6366f1;"></div>
+        <span style="font-size:12.5px;font-weight:600;color:#e2e8f0;">Choisir une classe</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        {% for cl in classes_du_cycle %}
+        <a href="{% url 'notes_list' %}?tab=saisie&cycle={{ selected_cycle_id }}&classe={{ cl.id }}" style="text-decoration:none;">
+          <div style="padding:7px 14px;border-radius:8px;border:1px solid;font-size:12px;font-weight:600;cursor:pointer;transition:all .13s;
+            {% if selected_classe_id == cl.id|stringformat:'s' %}background:rgba(99,102,241,.15);color:#818cf8;border-color:rgba(99,102,241,.3);
+            {% else %}background:rgba(255,255,255,0.04);color:#64748b;border-color:rgba(255,255,255,0.08);{% endif %}">
+            {{ cl.nom }}
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if selected_classe_id and matieres_classe %}
+    <!-- Étape 3 : Matière + Période -->
+    <div class="card" style="margin-bottom:16px;padding:16px 18px;">
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;">
+        <div style="flex:1;min-width:180px;">
+          <label style="font-size:11.5px;color:#64748b;font-weight:600;display:block;margin-bottom:6px;">Matière</label>
+          <select id="select-mc" class="input" onchange="location.href=buildUrl('mc', this.value)">
+            <option value="">— Choisir une matière —</option>
+            {% for mc in matieres_classe %}
+            <option value="{{ mc.id }}" {% if selected_mc and selected_mc.id == mc.id %}selected{% endif %}>
+              {{ mc.matiere.nom }} (coef. {{ mc.coefficient }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <label style="font-size:11.5px;color:#64748b;font-weight:600;display:block;margin-bottom:6px;">Période</label>
+          <select id="select-periode" class="input" onchange="location.href=buildUrl('periode', this.value)">
+            <option value="">— Choisir une période —</option>
+            {% for p in periodes %}
+            <option value="{{ p.id }}" {% if selected_periode and selected_periode.id == p.id %}selected{% endif %}>
+              {{ p.libelle }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function buildUrl(param, val) {
+        const u = new URL(window.location.href);
+        u.searchParams.set(param, val);
+        return u.toString();
+      }
+    </script>
+    {% endif %}
+
+    {% if grille %}
+    <!-- Grille de saisie -->
+    <form method="post" action="{% url 'notes_sauvegarder' %}">
+      {% csrf_token %}
+      <input type="hidden" name="mc_id" value="{{ selected_mc.id }}">
+      <input type="hidden" name="periode_id" value="{{ selected_periode.id }}">
+      <input type="hidden" name="classe_id" value="{{ selected_classe_id }}">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:3px;height:16px;border-radius:99px;background:#10b981;"></div>
+          <span style="font-size:12.5px;font-weight:600;color:#e2e8f0;">
+            {{ selected_mc.matiere.nom }} — {{ selected_periode.libelle }}
+          </span>
+          <span class="badge badge-green">{{ grille|length }} élève{% if grille|length > 1 %}s{% endif %}</span>
+        </div>
+        <button type="submit" class="btn btn-primary" style="padding:7px 16px;font-size:12px;">
+          <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+          </svg>
+          Enregistrer
+        </button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Élève</th>
+              <th style="width:140px;text-align:center;">Note /20</th>
+              <th>Commentaire</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in grille %}
+            <tr class="tr">
+              <td>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:700;flex-shrink:0;">
+                    {{ row.inscription.eleve.prenom.0|upper }}{{ row.inscription.eleve.nom.0|upper }}
+                  </div>
+                  <div class="cell-main">{{ row.inscription.eleve.prenom }} {{ row.inscription.eleve.nom }}</div>
+                </div>
+              </td>
+              <td style="text-align:center;">
+                <input type="number" name="note_{{ row.inscription.id }}"
+                       value="{% if row.note %}{{ row.note.valeur }}{% endif %}"
+                       min="0" max="20" step="0.25"
+                       placeholder="—"
+                       style="width:80px;text-align:center;padding:6px 10px;border-radius:7px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#f1f5f9;font-size:13px;font-weight:600;outline:none;"
+                       onfocus="this.style.borderColor='rgba(99,102,241,.5)'"
+                       onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+              </td>
+              <td>
+                <input type="text" name="commentaire_{{ row.inscription.id }}"
+                       value="{% if row.note %}{{ row.note.commentaire|default:'' }}{% endif %}"
+                       placeholder="Facultatif…"
+                       style="width:100%;padding:6px 10px;border-radius:7px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03);color:#94a3b8;font-size:12px;outline:none;"
+                       onfocus="this.style.borderColor='rgba(99,102,241,.4)'"
+                       onblur="this.style.borderColor='rgba(255,255,255,0.07)'">
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+        <button type="submit" class="btn btn-primary" style="padding:9px 20px;font-size:12.5px;">
+          <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+          </svg>
+          Enregistrer les notes
+        </button>
+      </div>
+    </form>
+
+    {% elif selected_classe_id and not selected_mc or selected_mc and not selected_periode %}
+    <div class="card" style="text-align:center;padding:48px 20px;">
+      <div style="font-size:12.5px;font-weight:600;color:#4b5563;">Sélectionnez une matière et une période pour saisir les notes.</div>
+    </div>
+    {% elif not selected_cycle_id %}
+    <div class="card" style="text-align:center;padding:48px 20px;">
+      <div style="font-size:12.5px;font-weight:600;color:#4b5563;">Commencez par choisir un cycle ci-dessus.</div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 2 : CATALOGUE DES MATIÈRES
+  ════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab === 'catalogue'" x-cloak>
+    {% if catalogue %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Matière</th>
+            <th>Classe</th>
+            <th>Cycle</th>
+            <th style="text-align:center;">Coef.</th>
+            <th>Professeur</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for mc in catalogue %}
+          <tr class="tr">
+            <td>
+              <div style="display:flex;align-items:center;gap:9px;">
+                <div style="width:28px;height:28px;border-radius:7px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg style="width:13px;height:13px;color:#818cf8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+                  </svg>
+                </div>
+                <span class="cell-main">{{ mc.matiere.nom }}</span>
+              </div>
+            </td>
+            <td><span class="badge badge-blue">{{ mc.classe.nom }}</span></td>
+            <td style="font-size:12px;color:#4b5563;">{{ mc.classe.cycle.nom }}</td>
+            <td style="text-align:center;">
+              <span style="font-weight:700;color:#f1f5f9;font-size:13px;">{{ mc.coefficient }}</span>
+            </td>
+            <td style="font-size:12px;color:#4b5563;">
+              {% if mc.professeur %}{{ mc.professeur.prenom }} {{ mc.professeur.nom }}{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:64px 20px;">
+      <div style="font-size:13px;font-weight:600;color:#4b5563;">Aucune matière configurée pour cet établissement.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 3 : MODIFICATIONS EN ATTENTE
+  ════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab === 'modifications'" x-cloak>
     {% if modifs_en_attente %}
-    <div class="space-y-3">
+    <div style="display:flex;flex-direction:column;gap:10px;">
       {% for modif in modifs_en_attente %}
-      <div class="card hover:shadow-card-hover transition-all duration-200 p-0 overflow-hidden">
-        <div class="flex items-start gap-4 p-5">
-          <!-- Status indicator -->
-          <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center mt-0.5">
-            <svg class="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="height:3px;background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:16px 18px;">
+          <div style="flex-shrink:0;width:38px;height:38px;border-radius:10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.2);display:flex;align-items:center;justify-content:center;">
+            <svg style="width:18px;height:18px;color:#fbbf24;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
             </svg>
           </div>
-
-          <!-- Content -->
-          <div class="flex-1 min-w-0">
-            <div class="flex flex-wrap items-center gap-2 mb-2">
-              <span class="font-semibold text-slate-900">
-                {{ modif.note.inscription.eleve.prenom }} {{ modif.note.inscription.eleve.nom }}
-              </span>
-              <span class="badge bg-indigo-50 text-indigo-700">{{ modif.note.matiere_classe.matiere.nom }}</span>
-              <span class="badge bg-slate-100 text-slate-600">{{ modif.note.periode.nom|default:"—" }}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:8px;">
+              <span style="font-size:13px;font-weight:600;color:#f1f5f9;">{{ modif.note.inscription.eleve.prenom }} {{ modif.note.inscription.eleve.nom }}</span>
+              <span class="badge badge-indigo">{{ modif.note.matiere_classe.matiere.nom }}</span>
+              <span class="badge badge-slate">{{ modif.note.periode.libelle|default:"—" }}</span>
             </div>
-            <div class="flex flex-wrap items-center gap-4 text-sm">
-              <div class="flex items-center gap-1.5">
-                <span class="text-slate-400 text-xs">Ancienne note</span>
-                <span class="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg text-sm">{{ modif.ancienne_valeur|default:"—" }}</span>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:11px;color:#374151;">Ancienne</span>
+                <span style="font-weight:700;color:#f87171;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);padding:2px 9px;border-radius:6px;font-size:13px;">{{ modif.ancienne_valeur|default:"—" }}</span>
               </div>
-              <svg class="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg style="width:14px;height:14px;color:#374151;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
               </svg>
-              <div class="flex items-center gap-1.5">
-                <span class="text-slate-400 text-xs">Nouvelle note</span>
-                <span class="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg text-sm">{{ modif.nouvelle_valeur|default:"—" }}</span>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:11px;color:#374151;">Nouvelle</span>
+                <span style="font-weight:700;color:#34d399;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);padding:2px 9px;border-radius:6px;font-size:13px;">{{ modif.nouvelle_valeur|default:"—" }}</span>
               </div>
             </div>
             {% if modif.motif %}
-            <p class="mt-2 text-xs text-slate-500 italic bg-slate-50 px-3 py-2 rounded-lg">
-              "{{ modif.motif }}"
-            </p>
+            <div style="margin-top:8px;font-size:11.5px;color:#4b5563;font-style:italic;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);padding:7px 11px;border-radius:7px;">"{{ modif.motif }}"</div>
             {% endif %}
-            <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
-              </svg>
-              Demandé par <strong class="text-slate-600">{{ modif.modifie_par.prenom }} {{ modif.modifie_par.nom }}</strong>
-              &bull; {{ modif.date_modification|date:"d/m/Y à H:i" }}
+            <div style="margin-top:7px;font-size:11px;color:#374151;">
+              Par <strong style="color:#64748b;">{{ modif.modifie_par.prenom }} {{ modif.modifie_par.nom }}</strong>
+              &bull; {{ modif.date_modification|date:"d/m/Y H:i" }}
             </div>
           </div>
-
-          <!-- Actions -->
-          <div class="flex-shrink-0 flex flex-col sm:flex-row gap-2">
-            <button class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-colors shadow-sm"
-                    title="Valider la modification">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <div style="flex-shrink:0;display:flex;gap:7px;">
+            <button style="display:flex;align-items:center;gap:5px;padding:7px 13px;font-size:11.5px;font-weight:600;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;"
+                    onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+              <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
               </svg>
               Valider
             </button>
-            <button class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-xl transition-colors"
-                    title="Rejeter la modification">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <button style="display:flex;align-items:center;gap:5px;padding:7px 13px;font-size:11.5px;font-weight:600;background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:8px;cursor:pointer;"
+                    onmouseover="this.style.background='rgba(239,68,68,.2)'" onmouseout="this.style.background='rgba(239,68,68,.1)'">
+              <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
               Rejeter
@@ -104,29 +358,16 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="card text-center py-20">
-      <div class="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-        <svg class="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+    <div class="card" style="text-align:center;padding:64px 20px;">
+      <div style="width:52px;height:52px;border-radius:14px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+        <svg style="width:24px;height:24px;color:#34d399;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </div>
-      <h3 class="text-slate-700 font-semibold mb-1">Aucune modification en attente</h3>
-      <p class="text-slate-400 text-sm">Toutes les demandes ont été traitées.</p>
+      <div style="font-size:13px;font-weight:600;color:#6b7280;margin-bottom:5px;">Aucune modification en attente</div>
+      <div style="font-size:12px;color:#374151;">Toutes les demandes ont été traitées.</div>
     </div>
     {% endif %}
-  </div>
-
-  <!-- HISTORIQUE -->
-  <div x-show="activeTab === 'historique'" x-cloak>
-    <div class="card text-center py-20">
-      <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-        <svg class="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-      </div>
-      <h3 class="text-slate-700 font-semibold mb-1">Historique des modifications</h3>
-      <p class="text-slate-400 text-sm">Fonctionnalité disponible prochainement.</p>
-    </div>
   </div>
 
 </div>

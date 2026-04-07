@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Paramètres{% endblock %}
+{% block page_title %}Paramètres{% endblock %}
+{% block page_subtitle %}Modifier vos informations personnelles{% endblock %}
+
+{% block content %}
+<div style="max-width:560px;">
+
+  <form method="post">
+    {% csrf_token %}
+
+    <!-- Infos personnelles -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;">
+        <div style="width:3px;height:18px;border-radius:99px;background:#6366f1;"></div>
+        <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Informations personnelles</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div>
+          <label>Prénom</label>
+          <input type="text" name="prenom" value="{{ request.user.prenom }}" class="input" required>
+        </div>
+        <div>
+          <label>Nom</label>
+          <input type="text" name="nom" value="{{ request.user.nom }}" class="input" required>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label>Email</label>
+        <input type="email" value="{{ request.user.email }}" class="input" disabled
+               style="opacity:.5;cursor:not-allowed;">
+        <div style="font-size:11px;color:#374151;margin-top:4px;">L'email ne peut pas être modifié ici.</div>
+      </div>
+
+      <div>
+        <label>Téléphone</label>
+        <input type="text" name="telephone" value="{{ request.user.telephone|default:'' }}"
+               placeholder="Ex : 771234567" class="input">
+      </div>
+    </div>
+
+    <!-- Mot de passe -->
+    <div class="card" style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;">
+        <div style="width:3px;height:18px;border-radius:99px;background:#f59e0b;"></div>
+        <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Changer le mot de passe</div>
+        <span style="font-size:11px;color:#374151;">(laisser vide pour ne pas changer)</span>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label>Nouveau mot de passe</label>
+        <input type="password" name="new_password" placeholder="8 caractères minimum" class="input">
+      </div>
+      <div>
+        <label>Confirmer le mot de passe</label>
+        <input type="password" name="confirm_password" placeholder="Répétez le mot de passe" class="input">
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button type="submit" class="btn btn-primary" style="padding:10px 22px;">
+        <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+        </svg>
+        Enregistrer
+      </button>
+      <a href="{% url 'mon_profil' %}" class="btn btn-secondary" style="padding:10px 18px;">Annuler</a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

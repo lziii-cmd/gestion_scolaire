@@ -1,138 +1,487 @@
 {% extends "base.html" %}
 
 {% block title %}Finances{% endblock %}
-{% block page_title %}Finances{% endblock %}
-{% block page_subtitle %}Paiements, caisse et encaissements{% endblock %}
+{% block page_title %}
+  {% if is_caissier_only %}Caisse du jour{% else %}Finances{% endif %}
+{% endblock %}
+{% block page_subtitle %}
+  {% if is_caissier_only %}Mes encaissements — {{ today|date:"d/m/Y" }}{% else %}Paiements, caisse et encaissements{% endif %}
+{% endblock %}
 
 {% block content %}
 
-<!-- Stats row -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{% if msg.tags == 'error' %}error{% elif msg.tags == 'warning' %}amber{% else %}success{% endif %}" style="margin-bottom:14px;">{{ msg }}</div>
+{% endfor %}
+{% endif %}
 
-  <!-- Total du mois -->
-  <div class="card hover:shadow-card-hover transition-all duration-200">
-    <div class="flex items-start justify-between mb-4">
-      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
-           style="background: linear-gradient(135deg, #10b981, #059669);">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+<!-- ══════════════════════════════════════════════════════════
+     ESPACE CAISSIER
+════════════════════════════════════════════════════════════ -->
+{% if is_caissier_only %}
+
+<!-- Stats caissier -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:20px;">
+
+  <!-- Total encaissé aujourd'hui -->
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(16,185,129,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#34d399" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </div>
-      <span class="badge bg-emerald-50 text-emerald-700">Ce mois</span>
+      <span class="badge badge-green">Aujourd'hui</span>
     </div>
-    <p class="text-2xl font-bold text-slate-900 mb-1">
-      {{ total_mois|default:"0"|floatformat:"0" }}
-      <span class="text-sm font-medium text-slate-400">FCFA</span>
-    </p>
-    <p class="text-sm text-slate-500">Total encaissé</p>
+    <div style="display:flex;align-items:baseline;gap:5px;">
+      <div class="stat-val">{{ total_jour|floatformat:"0" }}</div>
+      <span style="font-size:12px;color:#374151;font-weight:600;">FCFA</span>
+    </div>
+    <div class="stat-lbl">Mon encaissé du jour</div>
   </div>
 
-  <!-- Clôture caisse -->
-  <div class="card hover:shadow-card-hover transition-all duration-200">
-    <div class="flex items-start justify-between mb-4">
-      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
-           style="background: linear-gradient(135deg, {% if cloture_today %}#6366f1{% else %}#f59e0b{% endif %}, {% if cloture_today %}#8b5cf6{% else %}#d97706{% endif %});">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
-        </svg>
-      </div>
-      {% if cloture_today %}
-      <span class="badge bg-indigo-50 text-indigo-700">Clôturée</span>
-      {% else %}
-      <span class="badge bg-amber-50 text-amber-700">Ouverte</span>
-      {% endif %}
-    </div>
-    <p class="text-lg font-bold text-slate-900 mb-1">
-      {% if cloture_today %}Caisse clôturée{% else %}Caisse ouverte{% endif %}
-    </p>
-    <p class="text-sm text-slate-500">Statut aujourd'hui</p>
-    {% if not cloture_today %}
-    <button class="mt-3 btn-secondary text-xs py-1.5 px-3">
-      Clôturer la caisse
-    </button>
-    {% endif %}
-  </div>
-
-  <!-- Paiements récents -->
-  <div class="card hover:shadow-card-hover transition-all duration-200">
-    <div class="flex items-start justify-between mb-4">
-      <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
-           style="background: linear-gradient(135deg, #0ea5e9, #06b6d4);">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+  <!-- Nombre de paiements -->
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(14,165,233,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#38bdf8" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/>
         </svg>
       </div>
-      <span class="badge bg-sky-50 text-sky-700">{{ paiements_recents|length }} récents</span>
+      <span class="badge badge-blue">{{ nb_paiements_jour }} opération{% if nb_paiements_jour > 1 %}s{% endif %}</span>
     </div>
-    <p class="text-2xl font-bold text-slate-900 mb-1">{{ paiements_recents|length }}</p>
-    <p class="text-sm text-slate-500">Derniers paiements</p>
+    <div class="stat-val">{{ nb_paiements_jour }}</div>
+    <div class="stat-lbl">Paiements enregistrés</div>
   </div>
+
+  <!-- Statut caisse -->
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+      <div class="stat-icon" style="background:{% if cloture_today %}rgba(99,102,241,.15){% else %}rgba(245,158,11,.15){% endif %};">
+        <svg fill="none" viewBox="0 0 24 24" stroke="{% if cloture_today %}#818cf8{% else %}#fbbf24{% endif %}" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+        </svg>
+      </div>
+      {% if cloture_today %}<span class="badge badge-indigo">Clôturée</span>{% else %}<span class="badge badge-amber">Ouverte</span>{% endif %}
+    </div>
+    <div class="stat-val" style="font-size:20px;">{% if cloture_today %}Clôturée{% else %}Ouverte{% endif %}</div>
+    <div class="stat-lbl">Caisse aujourd'hui</div>
+  </div>
+
+  <!-- Demandes en attente -->
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(245,158,11,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#fbbf24" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <span class="badge badge-amber">{{ mes_demandes|length }}</span>
+    </div>
+    <div class="stat-val">{{ mes_demandes|length }}</div>
+    <div class="stat-lbl">Demande{% if mes_demandes|length > 1 %}s{% endif %} en attente</div>
+  </div>
+
 </div>
 
-<!-- Paiements récents table -->
-<div class="card p-0 overflow-hidden">
-  <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+<!-- Demandes en attente de validation -->
+{% if mes_demandes %}
+<div class="table-wrap" style="margin-bottom:20px;" x-data="{ open: true }">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;" @click="open = !open">
     <div>
-      <h3 class="font-semibold text-slate-900">Paiements récents</h3>
-      <p class="text-xs text-slate-400 mt-0.5">Les 20 dernières transactions</p>
+      <div style="font-size:13px;font-weight:700;color:#fbbf24;">Mes demandes en attente</div>
+      <div style="font-size:11px;color:#374151;margin-top:2px;">En cours de validation par le directeur ou le préfet</div>
     </div>
-    <button class="btn-primary text-xs py-2 px-3">
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+    <svg style="width:15px;height:15px;color:#374151;transition:transform .2s;" :style="open ? '' : 'transform:rotate(-90deg)'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+    </svg>
+  </div>
+  <div x-show="open">
+    <table>
+      <thead>
+        <tr>
+          <th>Élève</th>
+          <th>Type</th>
+          <th>Motif</th>
+          <th>Montant actuel</th>
+          <th>Nouveau montant</th>
+          <th>Demandé le</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in mes_demandes %}
+        <tr class="tr">
+          <td class="cell-main">{{ d.paiement.inscription.eleve.prenom }} {{ d.paiement.inscription.eleve.nom }}</td>
+          <td>
+            {% if d.type_action == 'ANNULATION' %}
+            <span class="badge badge-red">Annulation</span>
+            {% else %}
+            <span class="badge badge-amber">Modification</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:#94a3b8;max-width:200px;">{{ d.motif|truncatechars:60 }}</td>
+          <td style="font-weight:600;color:#94a3b8;">{{ d.paiement.montant|floatformat:"0" }} FCFA</td>
+          <td>
+            {% if d.nouveau_montant %}
+            <span style="font-weight:700;color:#fbbf24;">{{ d.nouveau_montant|floatformat:"0" }} FCFA</span>
+            {% else %}<span style="color:#374151;">—</span>{% endif %}
+          </td>
+          <td style="font-size:11.5px;color:#374151;">{{ d.date_demande|date:"d/m/Y H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Liste des paiements du jour -->
+<div class="table-wrap" x-data="{ showModal: false, paiementId: null, paiementEleve: '', paiementMontant: '', typeAction: 'MODIFICATION' }">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.05);">
+    <div>
+      <div style="font-size:13.5px;font-weight:600;color:#f1f5f9;">Mes paiements du jour</div>
+      <div style="font-size:11px;color:#374151;margin-top:2px;">Uniquement vos encaissements d'aujourd'hui</div>
+    </div>
+  </div>
+
+  {% if paiements %}
+  <table>
+    <thead>
+      <tr>
+        <th>Élève</th>
+        <th>Type de frais</th>
+        <th>Montant</th>
+        <th>Statut</th>
+        <th>Heure</th>
+        <th style="text-align:right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in paiements %}
+      <tr class="tr" {% if p.statut == 'ANNULE' %}style="opacity:.5;"{% endif %}>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0;">
+              {{ p.inscription.eleve.prenom.0|upper }}{{ p.inscription.eleve.nom.0|upper }}
+            </div>
+            <span class="cell-main">{{ p.inscription.eleve.prenom }} {{ p.inscription.eleve.nom }}</span>
+          </div>
+        </td>
+        <td><span class="badge badge-slate">{{ p.frais.type_frais.libelle|default:"—" }}</span></td>
+        <td>
+          <span style="font-weight:700;color:{% if p.statut == 'ANNULE' %}#ef4444{% else %}#34d399{% endif %};font-size:13px;{% if p.statut == 'ANNULE' %}text-decoration:line-through;{% endif %}">
+            {{ p.montant|floatformat:"0" }}
+          </span>
+          <span style="font-size:11px;color:#374151;"> FCFA</span>
+        </td>
+        <td>
+          {% if p.statut == 'ANNULE' %}
+          <span class="badge badge-red">Annulé</span>
+          {% elif p.modifications.filter.exists %}
+          <span class="badge badge-amber">Demande en cours</span>
+          {% else %}
+          <span class="badge badge-green">Valide</span>
+          {% endif %}
+        </td>
+        <td style="font-size:11.5px;color:#374151;">{{ p.date_paiement|date:"H:i" }}</td>
+        <td style="text-align:right;">
+          {% if p.statut == 'VALIDE' %}
+          {% with nb_demandes=p.modifications.count %}
+          {% if nb_demandes == 0 %}
+          <div style="display:flex;gap:6px;justify-content:flex-end;">
+            <!-- Modifier -->
+            <button
+              @click="showModal=true; paiementId={{ p.id }}; paiementEleve='{{ p.inscription.eleve.prenom }} {{ p.inscription.eleve.nom }}'; paiementMontant='{{ p.montant|floatformat:0 }}'; typeAction='MODIFICATION'"
+              style="padding:4px 9px;border-radius:6px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);color:#fbbf24;cursor:pointer;font-size:11.5px;font-weight:600;transition:all .13s;"
+              onmouseover="this.style.background='rgba(245,158,11,.18)'"
+              onmouseout="this.style.background='rgba(245,158,11,.1)'"
+              title="Demander une modification de montant">
+              Modifier
+            </button>
+            <!-- Annuler -->
+            <button
+              @click="showModal=true; paiementId={{ p.id }}; paiementEleve='{{ p.inscription.eleve.prenom }} {{ p.inscription.eleve.nom }}'; paiementMontant='{{ p.montant|floatformat:0 }}'; typeAction='ANNULATION'"
+              style="padding:4px 9px;border-radius:6px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#f87171;cursor:pointer;font-size:11.5px;font-weight:600;transition:all .13s;"
+              onmouseover="this.style.background='rgba(239,68,68,.15)'"
+              onmouseout="this.style.background='rgba(239,68,68,.08)'"
+              title="Demander l'annulation de ce paiement">
+              Annuler
+            </button>
+          </div>
+          {% else %}
+          <span style="font-size:11px;color:#4b5563;">Demande en attente</span>
+          {% endif %}
+          {% endwith %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:64px 20px;">
+    <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+      <svg style="width:22px;height:22px;color:#374151;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
       </svg>
-      Nouveau paiement
-    </button>
+    </div>
+    <div style="font-size:13px;font-weight:600;color:#4b5563;margin-bottom:5px;">Aucun paiement aujourd'hui</div>
+    <div style="font-size:12px;color:#374151;">Vos encaissements du jour apparaîtront ici.</div>
+  </div>
+  {% endif %}
+
+  <!-- Modal demande de modification / annulation -->
+  <div x-show="showModal" x-cloak
+       style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);"
+       @click.self="showModal=false">
+    <div style="background:#0e1422;border:1px solid rgba(255,255,255,0.09);border-radius:14px;width:100%;max-width:440px;padding:24px;box-shadow:0 24px 64px rgba(0,0,0,.4);">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#f1f5f9;" x-text="typeAction === 'ANNULATION' ? 'Demande d\'annulation' : 'Demande de modification'"></div>
+          <div style="font-size:11.5px;color:#4b5563;margin-top:2px;" x-text="paiementEleve + ' — ' + paiementMontant + ' FCFA'"></div>
+        </div>
+        <button @click="showModal=false" style="background:none;border:none;color:#374151;cursor:pointer;">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <form method="post" :action="`{% url 'finances_demander_modif' 0 %}`.replace('/0/', '/' + paiementId + '/')">
+        {% csrf_token %}
+        <input type="hidden" name="type_action" :value="typeAction">
+
+        <!-- Nouveau montant (seulement si modification) -->
+        <div x-show="typeAction === 'MODIFICATION'" style="margin-bottom:14px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px;">Nouveau montant (FCFA)</label>
+          <input type="number" name="nouveau_montant" step="1" min="1"
+                 style="width:100%;padding:9px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;"
+                 placeholder="Ex : 25000">
+        </div>
+
+        <!-- Motif -->
+        <div style="margin-bottom:18px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px;">
+            Motif <span style="color:#ef4444;">*</span>
+          </label>
+          <textarea name="motif" rows="3" required
+                    style="width:100%;padding:9px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;resize:vertical;"
+                    placeholder="Expliquez la raison de cette demande..."></textarea>
+          <div style="font-size:11px;color:#374151;margin-top:4px;">La demande sera soumise au directeur ou au préfet pour validation.</div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" @click="showModal=false"
+                  style="padding:8px 16px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);color:#64748b;cursor:pointer;font-size:12.5px;">
+            Annuler
+          </button>
+          <button type="submit"
+                  :style="typeAction === 'ANNULATION' ? 'background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;' : 'background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:#fbbf24;'"
+                  style="padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:600;"
+                  x-text="typeAction === 'ANNULATION' ? 'Soumettre l\'annulation' : 'Soumettre la modification'">
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+</div><!-- fin caissier -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     ESPACE COMPTABLE / DIRECTEUR / ADMIN
+════════════════════════════════════════════════════════════ -->
+{% else %}
+
+<!-- Stats globales -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:20px;">
+
+  <!-- Total mois -->
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(16,185,129,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#34d399" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+        </svg>
+      </div>
+      <span class="badge badge-green">Ce mois</span>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:5px;">
+      <div class="stat-val">{{ total_mois|floatformat:"0" }}</div>
+      <span style="font-size:12px;color:#374151;font-weight:600;">FCFA</span>
+    </div>
+    <div class="stat-lbl">Total encaissé</div>
+  </div>
+
+  <!-- Total jour -->
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(99,102,241,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+        </svg>
+      </div>
+      <span class="badge badge-indigo">Aujourd'hui</span>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:5px;">
+      <div class="stat-val">{{ total_jour|floatformat:"0" }}</div>
+      <span style="font-size:12px;color:#374151;font-weight:600;">FCFA</span>
+    </div>
+    <div class="stat-lbl">Encaissé aujourd'hui</div>
+  </div>
+
+  <!-- Caisse -->
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+      <div class="stat-icon" style="background:{% if cloture_today %}rgba(99,102,241,.15){% else %}rgba(245,158,11,.15){% endif %};">
+        <svg fill="none" viewBox="0 0 24 24" stroke="{% if cloture_today %}#818cf8{% else %}#fbbf24{% endif %}" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+        </svg>
+      </div>
+      {% if cloture_today %}<span class="badge badge-indigo">Clôturée</span>{% else %}<span class="badge badge-amber">Ouverte</span>{% endif %}
+    </div>
+    <div class="stat-val" style="font-size:20px;">{% if cloture_today %}Clôturée{% else %}Ouverte{% endif %}</div>
+    <div class="stat-lbl">Caisse aujourd'hui</div>
+  </div>
+
+  <!-- Demandes en attente -->
+  <div class="card" style="{% if nb_demandes_attente %}border-color:rgba(245,158,11,.3);{% endif %}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+      <div class="stat-icon" style="background:rgba(245,158,11,.15);">
+        <svg fill="none" viewBox="0 0 24 24" stroke="#fbbf24" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+        </svg>
+      </div>
+      {% if nb_demandes_attente %}
+      <span class="badge badge-amber">{{ nb_demandes_attente }} en attente</span>
+      {% else %}
+      <span class="badge badge-slate">Aucune</span>
+      {% endif %}
+    </div>
+    <div class="stat-val">{{ nb_demandes_attente }}</div>
+    <div class="stat-lbl">Demandes à valider</div>
+    {% if nb_demandes_attente %}
+    <a href="{% url 'finances_validations' %}" class="btn btn-secondary" style="margin-top:10px;padding:5px 11px;font-size:11.5px;display:inline-flex;align-items:center;gap:5px;">
+      Valider
+      <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+      </svg>
+    </a>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Demandes en attente - aperçu rapide -->
+{% if demandes_attente %}
+<div class="table-wrap" style="margin-bottom:20px;border-color:rgba(245,158,11,.2);">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(245,158,11,.15);">
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#fbbf24;">Demandes en attente de validation</div>
+      <div style="font-size:11px;color:#374151;margin-top:2px;">Soumises par les caissiers — nécessitent votre décision</div>
+    </div>
+    <a href="{% url 'finances_validations' %}" class="btn btn-secondary" style="padding:6px 12px;font-size:11.5px;">Tout voir</a>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Élève</th>
+        <th>Type</th>
+        <th>Montant actuel</th>
+        <th>Nouveau montant</th>
+        <th>Caissier</th>
+        <th>Motif</th>
+        <th style="text-align:right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in demandes_attente %}
+      <tr class="tr">
+        <td class="cell-main">{{ d.paiement.inscription.eleve.prenom }} {{ d.paiement.inscription.eleve.nom }}</td>
+        <td>
+          {% if d.type_action == 'ANNULATION' %}<span class="badge badge-red">Annulation</span>
+          {% else %}<span class="badge badge-amber">Modification</span>{% endif %}
+        </td>
+        <td style="font-weight:600;color:#94a3b8;">{{ d.paiement.montant|floatformat:"0" }} FCFA</td>
+        <td>
+          {% if d.nouveau_montant %}
+          <span style="font-weight:700;color:#fbbf24;">{{ d.nouveau_montant|floatformat:"0" }} FCFA</span>
+          {% else %}<span style="color:#374151;">—</span>{% endif %}
+        </td>
+        <td style="font-size:12px;color:#64748b;">{{ d.demandeur.prenom }} {{ d.demandeur.nom }}</td>
+        <td style="font-size:11.5px;color:#94a3b8;max-width:150px;">{{ d.motif|truncatechars:50 }}</td>
+        <td style="text-align:right;">
+          <form method="post" action="{% url 'finances_valider' d.id %}" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="decision" value="APPROUVER">
+            <button type="submit"
+                    style="padding:4px 9px;border-radius:6px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#34d399;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;"
+                    onclick="return confirm('Approuver cette demande ?')">
+              Approuver
+            </button>
+          </form>
+          <form method="post" action="{% url 'finances_valider' d.id %}" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="decision" value="REJETER">
+            <button type="submit"
+                    style="padding:4px 9px;border-radius:6px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#f87171;cursor:pointer;font-size:11px;font-weight:600;"
+                    onclick="return confirm('Rejeter cette demande ?')">
+              Rejeter
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Paiements récents -->
+<div class="table-wrap">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.05);">
+    <div>
+      <div style="font-size:13.5px;font-weight:600;color:#f1f5f9;">Paiements récents</div>
+      <div style="font-size:11px;color:#374151;margin-top:2px;">Les 30 dernières transactions valides</div>
+    </div>
   </div>
 
   {% if paiements_recents %}
-  <table class="w-full text-sm">
+  <table>
     <thead>
-      <tr class="border-b border-slate-100 bg-slate-50/50">
-        <th class="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Élève</th>
-        <th class="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Type de frais</th>
-        <th class="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Montant</th>
-        <th class="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Caissier</th>
-        <th class="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
-        <th class="px-6 py-3.5"></th>
+      <tr>
+        <th>Élève</th>
+        <th>Type de frais</th>
+        <th>Montant</th>
+        <th>Caissier</th>
+        <th>Date</th>
+        <th></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-50">
-      {% for paiement in paiements_recents %}
-      <tr class="table-row group">
-        <!-- Élève -->
-        <td class="px-6 py-4">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-              {{ paiement.inscription.eleve.prenom.0|upper }}{{ paiement.inscription.eleve.nom.0|upper }}
+    <tbody>
+      {% for p in paiements_recents %}
+      <tr class="tr">
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0;">
+              {{ p.inscription.eleve.prenom.0|upper }}{{ p.inscription.eleve.nom.0|upper }}
             </div>
-            <p class="font-medium text-slate-900">{{ paiement.inscription.eleve.prenom }} {{ paiement.inscription.eleve.nom }}</p>
+            <span class="cell-main">{{ p.inscription.eleve.prenom }} {{ p.inscription.eleve.nom }}</span>
           </div>
         </td>
-
-        <!-- Type frais -->
-        <td class="px-6 py-4 hidden md:table-cell">
-          <span class="badge bg-slate-100 text-slate-700">{{ paiement.frais.type_frais.libelle|default:"—" }}</span>
+        <td><span class="badge badge-slate">{{ p.frais.type_frais.libelle|default:"—" }}</span></td>
+        <td>
+          <span style="font-weight:700;color:#34d399;font-size:13px;">{{ p.montant|floatformat:"0" }}</span>
+          <span style="font-size:11px;color:#374151;"> FCFA</span>
         </td>
-
-        <!-- Montant -->
-        <td class="px-6 py-4">
-          <span class="font-bold text-emerald-600">{{ paiement.montant|floatformat:"0" }} <span class="text-xs font-normal text-slate-400">FCFA</span></span>
-        </td>
-
-        <!-- Caissier -->
-        <td class="px-6 py-4 hidden lg:table-cell">
-          <span class="text-slate-500 text-sm">{{ paiement.caissier.prenom|default:"—" }} {{ paiement.caissier.nom|default:"" }}</span>
-        </td>
-
-        <!-- Date -->
-        <td class="px-6 py-4">
-          <span class="text-slate-500 text-xs">{{ paiement.date_paiement|date:"d/m/Y" }}</span>
-        </td>
-
-        <!-- Reçu -->
-        <td class="px-6 py-4 text-right">
-          <button class="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all" title="Télécharger le reçu">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <td style="font-size:12px;color:#4b5563;">{{ p.caissier.prenom|default:"—" }} {{ p.caissier.nom|default:"" }}</td>
+        <td style="font-size:11.5px;color:#374151;">{{ p.date_paiement|date:"d/m/Y H:i" }}</td>
+        <td style="text-align:right;">
+          <button style="padding:4px 7px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#374151;cursor:pointer;" title="Télécharger le reçu">
+            <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
             </svg>
           </button>
@@ -142,16 +491,13 @@
     </tbody>
   </table>
   {% else %}
-  <div class="text-center py-16">
-    <div class="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-      <svg class="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
-      </svg>
-    </div>
-    <h3 class="text-slate-700 font-semibold mb-1">Aucun paiement enregistré</h3>
-    <p class="text-slate-400 text-sm">Les paiements apparaîtront ici dès qu'ils seront enregistrés.</p>
+  <div style="text-align:center;padding:64px 20px;">
+    <div style="font-size:13px;font-weight:600;color:#4b5563;margin-bottom:5px;">Aucun paiement enregistré</div>
+    <div style="font-size:12px;color:#374151;">Les paiements apparaîtront ici dès qu'ils seront enregistrés.</div>
   </div>
   {% endif %}
 </div>
+
+{% endif %}{# fin else comptable/directeur #}
 
 {% endblock %}

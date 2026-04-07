@@ -57,6 +57,11 @@ class Frais(models.Model):
         return self.montant - paye
 
 
+class StatutPaiement(models.TextChoices):
+    VALIDE  = 'VALIDE',  'Valide'
+    ANNULE  = 'ANNULE',  'Annulé'
+
+
 class Paiement(models.Model):
     inscription = models.ForeignKey(
         'scolarite.Inscription', on_delete=models.CASCADE, related_name='paiements'
@@ -65,6 +70,9 @@ class Paiement(models.Model):
         Frais, on_delete=models.CASCADE, related_name='paiements'
     )
     montant = models.DecimalField(max_digits=12, decimal_places=2)
+    statut = models.CharField(
+        max_length=10, choices=StatutPaiement.choices, default=StatutPaiement.VALIDE
+    )
     date_paiement = models.DateTimeField(auto_now_add=True)
     caissier = models.ForeignKey(
         'accounts.User', on_delete=models.SET_NULL, null=True, related_name='paiements_encaisses'
@@ -90,6 +98,49 @@ class Recu(models.Model):
 
     def __str__(self):
         return f"Reçu {self.numero}"
+
+
+class TypeActionPaiement(models.TextChoices):
+    MODIFICATION = 'MODIFICATION', 'Modification de montant'
+    ANNULATION   = 'ANNULATION',   'Annulation'
+
+
+class StatutDemande(models.TextChoices):
+    EN_ATTENTE = 'EN_ATTENTE', 'En attente'
+    APPROUVEE  = 'APPROUVEE',  'Approuvée'
+    REJETEE    = 'REJETEE',    'Rejetée'
+
+
+class ModificationPaiement(models.Model):
+    """
+    Toute modification ou annulation d'un paiement passe par ce workflow.
+    Le caissier soumet une demande ; le directeur ou préfet valide.
+    """
+    paiement      = models.ForeignKey(Paiement, on_delete=models.CASCADE, related_name='modifications')
+    type_action   = models.CharField(max_length=20, choices=TypeActionPaiement.choices)
+    motif         = models.TextField()
+    nouveau_montant = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    statut        = models.CharField(
+        max_length=20, choices=StatutDemande.choices, default=StatutDemande.EN_ATTENTE
+    )
+    demandeur     = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True,
+        related_name='demandes_modif_paiement'
+    )
+    validateur    = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='validations_modif_paiement'
+    )
+    date_demande    = models.DateTimeField(auto_now_add=True)
+    date_validation = models.DateTimeField(null=True, blank=True)
+    commentaire_validateur = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'Demande de modification de paiement'
+        ordering = ['-date_demande']
+
+    def __str__(self):
+        return f"{self.type_action} paiement #{self.paiement_id} [{self.statut}]"
 
 
 class StatutCloture(models.TextChoices):
