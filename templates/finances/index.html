@@ -55,18 +55,75 @@
     <div class="stat-lbl">Paiements enregistrés</div>
   </div>
 
-  <!-- Statut caisse -->
-  <div class="card">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
-      <div class="stat-icon" style="background:{% if cloture_today %}rgba(99,102,241,.15){% else %}rgba(245,158,11,.15){% endif %};">
-        <svg fill="none" viewBox="0 0 24 24" stroke="{% if cloture_today %}#818cf8{% else %}#fbbf24{% endif %}" stroke-width="1.8">
+  <!-- Statut caisse — cliquable pour ouvrir/fermer -->
+  <div class="card" style="cursor:pointer;transition:transform .15s,box-shadow .15s;" x-data="{ showPinModal: false }"
+       onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.3)'"
+       onmouseout="this.style.transform='';this.style.boxShadow=''">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
+      <div class="stat-icon" style="background:{% if cloture_today and cloture_today.statut == 'CLOTUREE' %}rgba(99,102,241,.15){% else %}rgba(16,185,129,.15){% endif %};">
+        <svg fill="none" viewBox="0 0 24 24" stroke="{% if cloture_today and cloture_today.statut == 'CLOTUREE' %}#818cf8{% else %}#34d399{% endif %}" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
         </svg>
       </div>
-      {% if cloture_today %}<span class="badge badge-indigo">Clôturée</span>{% else %}<span class="badge badge-amber">Ouverte</span>{% endif %}
+      {% if cloture_today and cloture_today.statut == 'CLOTUREE' %}
+        <span class="badge badge-indigo">Clôturée</span>
+      {% else %}
+        <span class="badge badge-green">Ouverte</span>
+      {% endif %}
     </div>
-    <div class="stat-val" style="font-size:20px;">{% if cloture_today %}Clôturée{% else %}Ouverte{% endif %}</div>
-    <div class="stat-lbl">Caisse aujourd'hui</div>
+    <div class="stat-val" style="font-size:18px;margin-bottom:2px;">
+      {% if cloture_today and cloture_today.statut == 'CLOTUREE' %}Fermée{% else %}Ouverte{% endif %}
+    </div>
+    <div class="stat-lbl" style="margin-bottom:10px;">Caisse aujourd'hui</div>
+    <!-- Bouton toggle -->
+    {% if cloture_today and cloture_today.statut == 'CLOTUREE' %}
+    <button @click.stop="showPinModal=true"
+            style="width:100%;padding:7px;border-radius:7px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#34d399;cursor:pointer;font-size:12px;font-weight:600;">
+      Ouvrir la caisse
+    </button>
+    {% else %}
+    <form method="post" action="{% url 'caisse_toggle' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="fermer">
+      <button type="submit" onclick="return confirm('Fermer la caisse du jour ?')"
+              style="width:100%;padding:7px;border-radius:7px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);color:#818cf8;cursor:pointer;font-size:12px;font-weight:600;">
+        Fermer la caisse
+      </button>
+    </form>
+    {% endif %}
+
+    <!-- Modal PIN -->
+    <div x-show="showPinModal" x-cloak @click.stop
+         style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;">
+      <div @click.stop style="background:#0e1422;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:28px;width:320px;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+            <svg style="width:20px;height:20px;color:#34d399;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+            </svg>
+          </div>
+          <div style="font-size:14px;font-weight:700;color:#e2e8f0;">Code PIN caisse</div>
+          <div style="font-size:12px;color:#4b5563;margin-top:4px;">Entrez votre code pour ouvrir la caisse</div>
+        </div>
+        <form method="post" action="{% url 'caisse_toggle' %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="ouvrir">
+          <input type="password" name="pin" maxlength="6" autocomplete="off" autofocus
+                 placeholder="Code PIN (laissez vide si non défini)"
+                 style="width:100%;padding:11px 14px;background:#080d16;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#f1f5f9;font-size:16px;outline:none;text-align:center;letter-spacing:.2em;margin-bottom:14px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button type="button" @click="showPinModal=false"
+                    style="padding:9px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#64748b;cursor:pointer;font-size:13px;font-weight:600;">
+              Annuler
+            </button>
+            <button type="submit"
+                    style="padding:9px;border-radius:8px;background:linear-gradient(135deg,#10b981,#059669);border:none;color:white;cursor:pointer;font-size:13px;font-weight:600;">
+              Ouvrir
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <!-- Demandes en attente -->

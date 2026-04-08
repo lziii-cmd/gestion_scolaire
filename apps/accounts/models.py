@@ -48,6 +48,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(default=timezone.now)
     must_change_password = models.BooleanField(default=True)
 
+    # PIN caisse (4 chiffres, haché)
+    pin_caisse = models.CharField(max_length=128, blank=True)
+
     # Sécurité: compteur de tentatives de connexion
     failed_login_attempts = models.PositiveSmallIntegerField(default=0)
     locked_until = models.DateTimeField(null=True, blank=True)
@@ -67,6 +70,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def nom_complet(self):
         return f"{self.prenom} {self.nom}"
+
+    def set_pin_caisse(self, pin):
+        from django.contrib.auth.hashers import make_password
+        self.pin_caisse = make_password(str(pin))
+
+    def check_pin_caisse(self, pin):
+        if not self.pin_caisse:
+            return True  # Pas de PIN = toujours ouvert
+        from django.contrib.auth.hashers import check_password
+        return check_password(str(pin), self.pin_caisse)
 
     def is_locked(self):
         if self.locked_until and self.locked_until > timezone.now():

@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block title %}Nouvelle inscription{% endblock %}
+{% block page_title %}Inscription{% endblock %}
+{% block page_subtitle %}Inscrire un nouvel élève — statut EN ATTENTE jusqu'à validation{% endblock %}
+
+{% block content %}
+{% if messages %}
+{% for msg in messages %}
+<div style="margin-bottom:12px;padding:10px 14px;border-radius:9px;font-size:13px;
+  {% if msg.tags == 'error' %}background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#f87171;
+  {% elif msg.tags == 'warning' %}background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);color:#fbbf24;
+  {% else %}background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);color:#34d399;{% endif %}">
+  {{ msg }}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Bannière workflow -->
+<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:11px 16px;margin-bottom:18px;display:flex;align-items:center;gap:10px;">
+  <svg style="width:15px;height:15px;color:#fbbf24;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+  </svg>
+  <span style="font-size:12.5px;color:#fbbf24;">L'inscription sera <strong>EN ATTENTE</strong> jusqu'à validation par le directeur ou le préfet.</span>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start;"
+  x-data="{
+    step: {% if eleve_selectionne %}2{% else %}1{% endif %},
+    eleveId: '{% if eleve_selectionne %}{{ eleve_selectionne.id }}{% endif %}',
+    eleveName: '{% if eleve_selectionne %}{{ eleve_selectionne.nom_complet }}{% endif %}',
+    eleveClasse: '{% if eleve_selectionne %}{{ eleve_selectionne.inscriptions.first.classe.nom|default:'' }}{% endif %}',
+    showDropdown: false,
+    showCreateForm: false,
+    withPaiement: false,
+    query: '',
+    results: [],
+    loading: false,
+    cycleSelected: '',
+    classes: [],
+
+    init() {
+      {% if eleve_selectionne %}this.step = 2;{% endif %}
+      this.$watch('query', (v) => { if(v.length >= 2) this.search(); else { this.results = []; this.showDropdown = false; } });
+      this.$watch('cycleSelected', (v) => { if(v) this.loadClasses(v); else this.classes = []; });
+    },
+
+    async search() {
+      this.loading = true;
+      try {
+        const r = await fetch(`{% url 'eleve_search_json' %}?q=${encodeURIComponent(this.query)}`);
+        const d = await r.json();
+        this.results = d.results;
+        this.showDropdown = true;
+      } finally { this.loading = false; }
+    },
+
+    selectEleve(e) {
+      this.eleveId = e.id;
+      this.eleveName = e.prenom + ' ' + e.nom;
+      this.eleveClasse = e.last_classe;
+      this.query = e.prenom + ' ' + e.nom;
+      this.showDropdown = false;
+      this.step = 2;
+    },
+
+    async loadClasses(cycle) {
+      const r = await fetch(`{% url 'classes_par_cycle_json' %}?cycle=${encodeURIComponent(cycle)}`);
+      const d = await r.json();
+      this.classes = d.classes;
+    }
+  }">
+
+  <!-- Colonne principale -->
+  <div>
+
+    <!-- Étape 1 : Sélectionner ou créer l'élève -->
+    <div class="card" style="padding:20px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;"
+             :style="step >= 1 ? 'background:#6366f1;color:white;' : 'background:rgba(255,255,255,0.05);color:#374151;'">1</div>
+        <span style="font-size:13px;font-weight:700;color:#e2e8f0;">Sélectionner l'élève</span>
+        <template x-if="eleveId">
+          <span style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:#34d399;font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;display:flex;align-items:center;gap:5px;">
+            <svg style="width:11px;height:11px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+            <span x-text="eleveName"></span>
+            <template x-if="eleveClasse"><span style="opacity:.7;" x-text="' · ' + eleveClasse"></span></template>
+          </span>
+        </template>
+      </div>
+
+      <!-- Champ de recherche avec autocomplete -->
+      <div style="position:relative;margin-bottom:14px;" @click.away="showDropdown = false">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 13px;background:#080d16;border:1px solid rgba(255,255,255,0.12);border-radius:9px;" :style="showDropdown ? 'border-color:rgba(99,102,241,.5);box-shadow:0 0 0 3px rgba(99,102,241,.08)' : ''">
+          <svg style="width:14px;height:14px;color:#374151;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+          </svg>
+          <input x-model="query" @focus="if(results.length) showDropdown=true"
+                 placeholder="Nom, prénom, classe… ex: Mamadou Fall 6ème"
+                 style="flex:1;background:transparent;border:none;color:#f1f5f9;font-size:13px;outline:none;">
+          <template x-if="loading">
+            <div style="width:14px;height:14px;border:2px solid rgba(99,102,241,.3);border-top-color:#6366f1;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;"></div>
+          </template>
+        </div>
+
+        <!-- Dropdown résultats -->
+        <div x-show="showDropdown && results.length > 0" x-cloak
+             style="position:absolute;top:calc(100% + 6px);left:0;right:0;background:#0e1422;border:1px solid rgba(255,255,255,0.1);border-radius:10px;z-index:50;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.5);">
+          <template x-for="e in results" :key="e.id">
+            <button type="button" @click="selectEleve(e)"
+                    style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;text-align:left;"
+                    onmouseover="this.style.background='rgba(99,102,241,.07)'" onmouseout="this.style.background=''">
+              <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0;" x-text="e.initials"></div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:600;color:#e2e8f0;" x-text="e.prenom + ' ' + e.nom"></div>
+                <div style="font-size:11px;color:#374151;" x-text="e.matricule + (e.last_classe ? ' · ' + e.last_classe : '')"></div>
+              </div>
+              <svg style="width:13px;height:13px;color:#6366f1;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+              </svg>
+            </button>
+          </template>
+          <template x-if="results.length === 0 && query.length >= 2 && !loading">
+            <div style="padding:14px 16px;font-size:12px;color:#374151;text-align:center;">Aucun résultat</div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Créer un nouvel élève -->
+      <button type="button" @click="showCreateForm = !showCreateForm"
+              style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);color:#818cf8;cursor:pointer;font-size:12.5px;font-weight:600;">
+        <svg style="width:13px;height:13px;transition:transform .2s;" :style="showCreateForm ? 'transform:rotate(45deg)' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        <span x-text="showCreateForm ? 'Annuler' : 'Créer un nouvel élève'"></span>
+      </button>
+
+      <!-- Formulaire création -->
+      <div x-show="showCreateForm" x-cloak style="margin-top:16px;padding:16px;border-radius:9px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em;">Nouvel élève</div>
+        <form method="post" action="">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="creer_eleve">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Nom *</label>
+              <input name="nom" required placeholder="Nom de famille" style="width:100%;padding:9px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Prénom(s) *</label>
+              <input name="prenom" required placeholder="Prénom(s)" style="width:100%;padding:9px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Date de naissance</label>
+              <input name="date_naissance" type="date" style="width:100%;padding:9px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Lieu de naissance</label>
+              <input name="lieu_naissance" placeholder="Ville" style="width:100%;padding:9px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Sexe</label>
+              <select name="sexe" style="width:100%;padding:9px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+                <option value="M">Masculin</option>
+                <option value="F">Féminin</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" style="padding:9px 20px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:white;cursor:pointer;font-size:13px;font-weight:600;">
+            Créer l'élève
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Étape 2 : Choisir la classe -->
+    <div class="card" style="padding:20px;" :style="step < 2 ? 'opacity:.4;pointer-events:none;' : ''">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;"
+             :style="step >= 2 ? 'background:#6366f1;color:white;' : 'background:rgba(255,255,255,0.05);color:#374151;'">2</div>
+        <span style="font-size:13px;font-weight:700;color:#e2e8f0;">Choisir la classe</span>
+      </div>
+
+      <form method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="inscrire">
+        <input type="hidden" name="eleve_id" :value="eleveId">
+
+        <!-- Sélecteur cycle puis classes -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:6px;">Cycle *</label>
+            <select x-model="cycleSelected"
+                    style="width:100%;padding:10px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+              <option value="">— Sélectionner un cycle —</option>
+              {% for cycle in cycles %}
+              <option value="{{ cycle.type_cycle }}">{{ cycle.get_type_cycle_display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:6px;">Classe *</label>
+            <select name="classe_id" required
+                    style="width:100%;padding:10px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+              <option value="">— Choisir la classe —</option>
+              <template x-for="c in classes" :key="c.id">
+                <option :value="c.id" x-text="c.nom"></option>
+              </template>
+              <template x-if="!cycleSelected">
+                <option value="" disabled>Sélectionnez d'abord un cycle</option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <!-- Option paiement -->
+        <div style="margin-bottom:14px;">
+          <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:#94a3b8;">
+            <input type="checkbox" name="avec_paiement" @change="withPaiement = $event.target.checked"
+                   style="width:15px;height:15px;border-radius:4px;accent-color:#6366f1;cursor:pointer;">
+            Encaisser l'inscription maintenant
+          </label>
+        </div>
+
+        <div x-show="withPaiement" x-cloak style="background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.15);border-radius:9px;padding:14px;margin-bottom:14px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Type de frais</label>
+              <select name="type_frais_id" style="width:100%;padding:9px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+                <option value="">— Choisir —</option>
+                {% for tf in types_frais %}
+                <option value="{{ tf.id }}">{{ tf.libelle }} ({{ tf.montant_defaut|floatformat:0 }} FCFA)</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Montant (FCFA)</label>
+              <input name="montant" type="number" min="1" step="1" placeholder="0"
+                     style="width:100%;padding:9px 12px;background:#080d16;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit"
+                style="width:100%;padding:12px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:white;cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.01em;box-shadow:0 4px 14px rgba(99,102,241,.3);">
+          Soumettre l'inscription
+        </button>
+        <div style="font-size:11px;color:#374151;margin-top:7px;text-align:center;">
+          Statut initial : EN ATTENTE — validation requise par le directeur.
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Colonne droite : inscriptions récentes -->
+  <div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12.5px;font-weight:700;color:#e2e8f0;">Mes inscriptions récentes</span>
+        {% if mes_inscriptions %}<span style="font-size:11px;color:#374151;">{{ mes_inscriptions|length }}</span>{% endif %}
+      </div>
+      {% if mes_inscriptions %}
+      {% for insc in mes_inscriptions %}
+      <div style="padding:11px 16px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;
+          {% if insc.statut == 'ACTIF' %}background:linear-gradient(135deg,#10b981,#059669);
+          {% elif insc.statut == 'EN_ATTENTE' %}background:linear-gradient(135deg,#f59e0b,#d97706);
+          {% else %}background:linear-gradient(135deg,#ef4444,#dc2626);{% endif %}">
+          {{ insc.eleve.prenom.0|upper }}{{ insc.eleve.nom.0|upper }}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12.5px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ insc.eleve.prenom }} {{ insc.eleve.nom }}</div>
+          <div style="font-size:11px;color:#374151;">{{ insc.classe.nom }}</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap;
+          {% if insc.statut == 'ACTIF' %}background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);
+          {% elif insc.statut == 'EN_ATTENTE' %}background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2);
+          {% else %}background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);{% endif %}">
+          {% if insc.statut == 'ACTIF' %}Actif
+          {% elif insc.statut == 'EN_ATTENTE' %}En attente
+          {% elif insc.statut == 'REJETE' %}Rejeté
+          {% else %}{{ insc.statut }}{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="padding:32px 16px;text-align:center;font-size:12px;color:#374151;">Aucune inscription récente.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}

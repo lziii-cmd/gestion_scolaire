@@ -15,6 +15,12 @@ def generer_code_identification():
     return str(uuid.uuid4()).replace('-', '').upper()[:8]
 
 
+class TypeEleve(models.TextChoices):
+    ORDINAIRE = 'ORDINAIRE', 'Ordinaire'
+    BOURSIER  = 'BOURSIER',  'Boursier'
+    AUDITEUR  = 'AUDITEUR',  'Auditeur libre'
+
+
 class StatutInscription(models.TextChoices):
     EN_ATTENTE  = 'EN_ATTENTE',  'En attente de validation'
     ACTIF       = 'ACTIF',       'Actif'
@@ -32,6 +38,9 @@ class Eleve(models.Model):
     date_naissance = models.DateField(null=True, blank=True)
     lieu_naissance = models.CharField(max_length=100, blank=True)
     sexe = models.CharField(max_length=1, choices=[('M', 'Masculin'), ('F', 'Féminin')])
+    type_eleve = models.CharField(
+        max_length=20, choices=TypeEleve.choices, default=TypeEleve.ORDINAIRE
+    )
     photo = models.ImageField(upload_to='eleves/photos/', blank=True, null=True)
 
     # Compte utilisateur lié (peut être null si pas encore activé)

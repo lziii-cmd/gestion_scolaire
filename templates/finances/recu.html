@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reçu {{ recu.numero }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #080d16;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+    }
+
+    /* ── Barre d'actions (masquée à l'impression) ───────────── */
+    .no-print {
+      background: #0c1220;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white; color: #111; }
+      .recu-card { box-shadow: none !important; border: 1px solid #ddd !important; background: white !important; }
+      .recu-amount { color: #16a34a !important; }
+    }
+
+    /* ── Reçu ───────────────────────────────────────────────── */
+    .recu-wrap {
+      max-width: 600px;
+      margin: 32px auto;
+      padding: 0 16px;
+    }
+    .recu-card {
+      background: #0e1422;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.4);
+    }
+
+    /* En-tête établissement */
+    .recu-header {
+      background: linear-gradient(135deg, #1e2744 0%, #0e1422 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      padding: 24px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .recu-header-left strong {
+      display: block;
+      font-size: 16px;
+      font-weight: 800;
+      color: #f1f5f9;
+      letter-spacing: -.01em;
+    }
+    .recu-header-left span {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+      display: block;
+    }
+    .recu-header-right {
+      text-align: right;
+    }
+    .recu-header-right .recu-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .recu-header-right .recu-num {
+      font-size: 15px;
+      font-weight: 800;
+      color: #6366f1;
+      font-family: monospace;
+      margin-top: 3px;
+    }
+
+    /* Corps */
+    .recu-body {
+      padding: 24px 28px;
+    }
+
+    /* Grille infos élève */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .info-cell label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #374151;
+      margin-bottom: 3px;
+    }
+    .info-cell span {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    /* Bloc montant */
+    .recu-amount-block {
+      background: rgba(16,185,129,.07);
+      border: 1px solid rgba(16,185,129,.18);
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .recu-amount-block .label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .recu-amount {
+      font-size: 36px;
+      font-weight: 800;
+      color: #34d399;
+      letter-spacing: -.02em;
+    }
+    .recu-amount span {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    /* Détail frais */
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    .detail-table th {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: #374151;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      text-align: left;
+    }
+    .detail-table td {
+      font-size: 13px;
+      color: #94a3b8;
+      padding: 9px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .detail-table td:last-child { text-align: right; font-weight: 700; color: #e2e8f0; }
+
+    /* Pied de reçu */
+    .recu-footer {
+      border-top: 1px solid rgba(255,255,255,0.07);
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .recu-footer .date { font-size: 11.5px; color: #374151; }
+    .recu-footer .caissier { font-size: 11.5px; color: #374151; }
+    .signature-zone {
+      border-top: 1px dashed rgba(255,255,255,0.12);
+      width: 160px;
+      text-align: center;
+      padding-top: 5px;
+      font-size: 10px;
+      color: #374151;
+      margin-top: 8px;
+    }
+
+    /* Boutons barre d'actions */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-ghost { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); color: #94a3b8; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-green { background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.3); color: #34d399; }
+  </style>
+</head>
+<body>
+
+<!-- Barre d'actions -->
+<div class="no-print">
+  <a href="{% url 'finances_index' %}" class="btn btn-ghost">
+    <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+    </svg>
+    Ma caisse
+  </a>
+  <a href="{% url 'encaisser_paiement' %}" class="btn btn-ghost">
+    Nouvel encaissement
+  </a>
+  <div style="flex:1;"></div>
+  <button onclick="window.print()" class="btn btn-green">
+    <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
+    </svg>
+    Imprimer
+  </button>
+</div>
+
+<!-- Reçu -->
+<div class="recu-wrap">
+  <div class="recu-card">
+
+    <!-- En-tête -->
+    <div class="recu-header">
+      <div class="recu-header-left">
+        <strong>{{ etablissement.nom }}</strong>
+        <span>{{ etablissement.sigle|upper }} — Reçu de paiement</span>
+        {% if etablissement.adresse %}
+        <span>{{ etablissement.adresse }}</span>
+        {% endif %}
+      </div>
+      <div class="recu-header-right">
+        <div class="recu-label">N° de reçu</div>
+        <div class="recu-num">{{ recu.numero }}</div>
+      </div>
+    </div>
+
+    <!-- Corps -->
+    <div class="recu-body">
+
+      <!-- Infos élève -->
+      <div class="info-grid">
+        <div class="info-cell">
+          <label>Élève</label>
+          <span>{{ paiement.inscription.eleve.prenom }} {{ paiement.inscription.eleve.nom }}</span>
+        </div>
+        <div class="info-cell">
+          <label>Matricule</label>
+          <span>{{ paiement.inscription.eleve.matricule }}</span>
+        </div>
+        <div class="info-cell">
+          <label>Classe</label>
+          <span>{{ paiement.inscription.classe.nom }}</span>
+        </div>
+        <div class="info-cell">
+          <label>Année scolaire</label>
+          <span>{{ paiement.inscription.annee_scolaire.libelle }}</span>
+        </div>
+      </div>
+
+      <!-- Montant encaissé -->
+      <div class="recu-amount-block">
+        <div class="label">Montant encaissé</div>
+        <div class="recu-amount">
+          {{ paiement.montant|floatformat:0 }} <span>{{ etablissement.devise }}</span>
+        </div>
+      </div>
+
+      <!-- Détail -->
+      <table class="detail-table">
+        <thead>
+          <tr>
+            <th>Désignation</th>
+            <th>Date</th>
+            <th style="text-align:right;">Montant</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ paiement.frais.type_frais.libelle }}</td>
+            <td>{{ paiement.date_paiement|date:"d/m/Y à H\hi" }}</td>
+            <td>{{ paiement.montant|floatformat:0 }} {{ etablissement.devise }}</td>
+          </tr>
+          {% if paiement.observation %}
+          <tr>
+            <td colspan="3" style="font-size:11.5px;color:#374151;font-style:italic;">Obs. : {{ paiement.observation }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+    </div>
+
+    <!-- Pied -->
+    <div class="recu-footer">
+      <div>
+        <div class="date">Émis le {{ recu.date_generation|date:"d/m/Y à H\hi" }}</div>
+        {% if paiement.caissier %}
+        <div class="caissier" style="margin-top:3px;">Caissier : {{ paiement.caissier.prenom }} {{ paiement.caissier.nom }}</div>
+        {% endif %}
+        <div class="signature-zone">Signature et cachet</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;color:#374151;margin-bottom:3px;">Statut</div>
+        <span style="padding:5px 12px;border-radius:99px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:#34d399;font-size:11.5px;font-weight:700;">
+          ✓ Validé
+        </span>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="text-align:center;margin-top:14px;font-size:11px;color:#374151;" class="no-print">
+    Ce reçu est généré automatiquement par le système de gestion scolaire.
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,6 +1,7 @@
 from apps.etablissements.models import Etablissement
 from apps.accounts.models import RoleChoices
 from apps.finances.models import ModificationPaiement, StatutDemande
+from apps.scolarite.models import Inscription, StatutInscription
 
 # Groupes de rôles pour les permissions d'affichage
 _ROLES_ELEVES = {
@@ -65,14 +66,17 @@ def sidebar_context(request):
         RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE,
     }
     if user_roles & _roles_validateurs:
-        # Filtre par établissement courant si disponible
         etab_id = request.session.get('etablissement_id')
-        qs = ModificationPaiement.objects.filter(statut=StatutDemande.EN_ATTENTE)
+        qs_modif = ModificationPaiement.objects.filter(statut=StatutDemande.EN_ATTENTE)
+        qs_insc  = Inscription.objects.filter(statut=StatutInscription.EN_ATTENTE)
         if etab_id:
-            qs = qs.filter(paiement__inscription__etablissement_id=etab_id)
-        ctx['nb_demandes_paiement_attente'] = qs.count()
+            qs_modif = qs_modif.filter(paiement__inscription__etablissement_id=etab_id)
+            qs_insc  = qs_insc.filter(etablissement_id=etab_id)
+        ctx['nb_demandes_paiement_attente'] = qs_modif.count()
+        ctx['nb_inscriptions_attente']      = qs_insc.count()
     else:
         ctx['nb_demandes_paiement_attente'] = 0
+        ctx['nb_inscriptions_attente']      = 0
 
     # Flags de rôle individuels utilisés dans les templates pour affiner l'affichage
     _roles_admin = {RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE}

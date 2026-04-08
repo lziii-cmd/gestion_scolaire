@@ -16,12 +16,12 @@
       padding: 40px 24px;
       min-height: 100vh;
     }
-    .container { max-width: 900px; margin: 0 auto; }
+    .container { max-width: 1000px; margin: 0 auto; }
 
     .header {
       display: flex; align-items: center; gap: 14px;
-      margin-bottom: 32px;
-      padding-bottom: 22px;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     .header-icon {
@@ -34,7 +34,6 @@
     .header h1 { font-size: 20px; font-weight: 800; color: #f1f5f9; }
     .header p  { font-size: 12px; color: #4b5563; margin-top: 3px; }
 
-    /* Password banner */
     .pw-banner {
       display: flex; align-items: center; gap: 12px;
       background: rgba(99,102,241,.08);
@@ -43,55 +42,68 @@
       padding: 13px 16px;
       margin-bottom: 28px;
     }
-    .pw-banner-icon {
+    .pw-icon {
       width: 34px; height: 34px; border-radius: 9px;
       background: rgba(99,102,241,.15);
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
     .pw-label { font-size: 11.5px; color: #64748b; }
-    .pw-value {
-      font-size: 16px; font-weight: 800; color: #818cf8;
-      font-family: monospace; letter-spacing: .04em;
-    }
+    .pw-value { font-size: 16px; font-weight: 800; color: #818cf8; font-family: monospace; letter-spacing: .04em; }
 
-    /* Section */
-    .section { margin-bottom: 32px; }
-    .section-title {
-      display: flex; align-items: center; gap: 8px;
-      margin-bottom: 12px;
+    /* Nav étabs */
+    .etab-nav {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 24px;
     }
-    .section-title-bar { width: 3px; height: 18px; border-radius: 99px; }
-    .section-title h2 { font-size: 13px; font-weight: 700; color: #e2e8f0; }
-    .section-title span { font-size: 11px; color: #4b5563; }
+    .etab-nav a {
+      padding: 6px 14px; border-radius: 8px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      color: #94a3b8; font-size: 12.5px; font-weight: 600;
+      text-decoration: none; transition: all .15s;
+    }
+    .etab-nav a:hover { background: rgba(99,102,241,.12); border-color: rgba(99,102,241,.3); color: #818cf8; }
 
-    /* Table */
+    /* Section étab */
+    .etab-section { margin-bottom: 36px; }
+    .etab-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 14px;
+    }
+    .etab-badge {
+      padding: 4px 12px; border-radius: 7px;
+      font-size: 12px; font-weight: 700; letter-spacing: .04em;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+    }
+    .etab-nom { font-size: 14px; font-weight: 700; color: #e2e8f0; }
+    .etab-count { font-size: 11.5px; color: #4b5563; }
+
     .table-wrap {
       background: #0e1422;
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 12px;
       overflow: hidden;
+      margin-bottom: 10px;
     }
     table { width: 100%; border-collapse: collapse; }
     thead th {
-      padding: 10px 14px;
-      font-size: 11px; font-weight: 600;
-      color: #374151; text-transform: uppercase; letter-spacing: .05em;
-      text-align: left;
+      padding: 9px 14px;
+      font-size: 10.5px; font-weight: 600; color: #374151;
+      text-transform: uppercase; letter-spacing: .05em; text-align: left;
       border-bottom: 1px solid rgba(255,255,255,0.05);
       background: rgba(255,255,255,0.02);
     }
     tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: rgba(255,255,255,0.025); }
-    td { padding: 11px 14px; font-size: 12.5px; }
+    td { padding: 10px 14px; font-size: 12.5px; }
 
     .avatar {
       width: 30px; height: 30px; border-radius: 8px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
       display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 10px; font-weight: 700;
-      flex-shrink: 0;
+      color: #fff; font-size: 10px; font-weight: 700; flex-shrink: 0;
     }
     .user-cell { display: flex; align-items: center; gap: 10px; }
     .user-name  { font-weight: 600; color: #f1f5f9; }
@@ -100,28 +112,45 @@
     .badge {
       display: inline-flex; align-items: center;
       padding: 2px 8px; border-radius: 5px;
-      font-size: 11px; font-weight: 600; white-space: nowrap;
+      font-size: 10.5px; font-weight: 600; white-space: nowrap;
     }
-    .badge-su      { background: rgba(239,68,68,.12);  color: #f87171;  border: 1px solid rgba(239,68,68,.2); }
-    .badge-admin   { background: rgba(99,102,241,.12); color: #818cf8;  border: 1px solid rgba(99,102,241,.2); }
-    .badge-dir     { background: rgba(14,165,233,.12); color: #38bdf8;  border: 1px solid rgba(14,165,233,.2); }
-    .badge-prof    { background: rgba(16,185,129,.12); color: #34d399;  border: 1px solid rgba(16,185,129,.2); }
-    .badge-compta  { background: rgba(245,158,11,.12); color: #fbbf24;  border: 1px solid rgba(245,158,11,.2); }
-    .badge-autre   { background: rgba(255,255,255,.05); color: #64748b; border: 1px solid rgba(255,255,255,.08); }
+    .badge-su     { background:rgba(239,68,68,.12);  color:#f87171;  border:1px solid rgba(239,68,68,.2); }
+    .badge-dir    { background:rgba(14,165,233,.12); color:#38bdf8;  border:1px solid rgba(14,165,233,.2); }
+    .badge-prof   { background:rgba(16,185,129,.12); color:#34d399;  border:1px solid rgba(16,185,129,.2); }
+    .badge-compta { background:rgba(245,158,11,.12); color:#fbbf24;  border:1px solid rgba(245,158,11,.2); }
+    .badge-eleve  { background:rgba(99,102,241,.1);  color:#818cf8;  border:1px solid rgba(99,102,241,.2); }
+    .badge-autre  { background:rgba(255,255,255,.05);color:#64748b;  border:1px solid rgba(255,255,255,.08); }
 
     .pw-cell {
       font-family: monospace; font-size: 12px;
       color: #818cf8; background: rgba(99,102,241,.08);
       border: 1px solid rgba(99,102,241,.15);
-      padding: 3px 9px; border-radius: 6px;
-      display: inline-block;
+      padding: 3px 9px; border-radius: 6px; display: inline-block;
     }
 
-    .etab-tag {
-      font-size: 11px; color: #64748b;
-      background: rgba(255,255,255,.04);
+    /* Collapsible élèves */
+    details { margin-top: 8px; }
+    summary {
+      cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,.03);
       border: 1px solid rgba(255,255,255,.07);
-      padding: 2px 8px; border-radius: 5px;
+      border-radius: 10px;
+      font-size: 12.5px; font-weight: 600; color: #94a3b8;
+      list-style: none; user-select: none;
+      transition: background .15s;
+    }
+    summary:hover { background: rgba(99,102,241,.07); color: #818cf8; }
+    details[open] summary { border-radius: 10px 10px 0 0; border-bottom-color: transparent; }
+    details[open] .table-wrap { border-radius: 0 0 12px 12px; border-top: none; margin-bottom: 0; }
+    .chevron { transition: transform .2s; }
+    details[open] .chevron { transform: rotate(90deg); }
+
+    .type-tag {
+      font-size: 10px; padding: 1px 6px; border-radius: 4px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+      color: #64748b;
     }
 
     .notice {
@@ -129,9 +158,10 @@
       background: rgba(245,158,11,.06);
       border: 1px solid rgba(245,158,11,.18);
       border-radius: 9px; padding: 12px 15px;
-      margin-top: 32px; font-size: 12px; color: #92400e;
+      margin-top: 32px; font-size: 12px;
     }
     .notice svg { flex-shrink: 0; color: #fbbf24; margin-top: 1px; }
+    .notice span { color: #d97706; }
   </style>
 </head>
 <body>
@@ -150,9 +180,9 @@
     </div>
   </div>
 
-  <!-- Mot de passe global -->
+  <!-- Mot de passe -->
   <div class="pw-banner">
-    <div class="pw-banner-icon">
+    <div class="pw-icon">
       <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
       </svg>
@@ -163,28 +193,34 @@
     </div>
   </div>
 
-  <!-- Établissements -->
-  <div class="section">
-    <div class="section-title">
-      <div class="section-title-bar" style="background:#6366f1;"></div>
-      <h2>Établissements</h2>
-      <span>{{ etablissements|length }} école{% if etablissements|length > 1 %}s{% endif %}</span>
+  <!-- Nav rapide -->
+  <div class="etab-nav">
+    <a href="#superadmin">Super Admin</a>
+    {% for ed in etabs_data %}
+    <a href="#etab-{{ ed.etab.sigle }}">{{ ed.etab.sigle }}</a>
+    {% endfor %}
+  </div>
+
+  <!-- Super Admin -->
+  <div class="etab-section" id="superadmin">
+    <div class="etab-header">
+      <span class="badge badge-su">SUPER ADMIN</span>
+      <span class="etab-count">{{ superadmins|length }} compte{% if superadmins|length > 1 %}s{% endif %}</span>
     </div>
     <div class="table-wrap">
       <table>
-        <thead>
-          <tr>
-            <th>Sigle</th>
-            <th>Nom</th>
-            <th>Email</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Utilisateur</th><th>Email</th><th>Mot de passe</th></tr></thead>
         <tbody>
-          {% for etab in etablissements %}
+          {% for u in superadmins %}
           <tr>
-            <td><span class="badge badge-admin">{{ etab.sigle }}</span></td>
-            <td style="color:#f1f5f9;font-weight:600;">{{ etab.nom }}</td>
-            <td style="font-family:monospace;color:#4b5563;">{{ etab.email }}</td>
+            <td>
+              <div class="user-cell">
+                <div class="avatar" style="background:linear-gradient(135deg,#ef4444,#dc2626);">{{ u.prenom.0|upper }}{{ u.nom.0|upper }}</div>
+                <div><div class="user-name">{{ u.prenom }} {{ u.nom }}</div></div>
+              </div>
+            </td>
+            <td><span class="user-email">{{ u.email }}</span></td>
+            <td><span class="pw-cell">{{ mot_de_passe }}</span></td>
           </tr>
           {% endfor %}
         </tbody>
@@ -192,66 +228,49 @@
     </div>
   </div>
 
-  <!-- Comptes -->
-  <div class="section">
-    <div class="section-title">
-      <div class="section-title-bar" style="background:#10b981;"></div>
-      <h2>Tous les comptes</h2>
-      <span>{{ accounts|length }} utilisateur{% if accounts|length > 1 %}s{% endif %}</span>
+  <!-- Par établissement -->
+  {% for ed in etabs_data %}
+  <div class="etab-section" id="etab-{{ ed.etab.sigle }}">
+    <div class="etab-header">
+      <span class="etab-badge">{{ ed.etab.sigle }}</span>
+      <span class="etab-nom">{{ ed.etab.nom }}</span>
+      <span class="etab-count">{{ ed.staff|length }} staff · {{ ed.eleves|length }} élèves</span>
     </div>
+
+    <!-- Staff -->
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th>Utilisateur</th>
             <th>Rôle</th>
-            <th>Établissement</th>
+            <th>Email</th>
             <th>Mot de passe</th>
           </tr>
         </thead>
         <tbody>
-          {% for item in accounts %}
+          {% for item in ed.staff %}
           {% with u=item.user %}
           <tr>
             <td>
               <div class="user-cell">
-                <div class="avatar">{{ u.prenom.0|upper }}{{ u.nom.0|upper }}</div>
-                <div>
-                  <div class="user-name">{{ u.prenom }} {{ u.nom }}</div>
-                  <div class="user-email">{{ u.email }}</div>
-                </div>
+                <div class="avatar" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);">{{ u.prenom.0|upper }}{{ u.nom.0|upper }}</div>
+                <div><div class="user-name">{{ u.prenom }} {{ u.nom }}</div></div>
               </div>
             </td>
             <td>
-              {% if u.is_superuser %}
-                <span class="badge badge-su">is_superuser</span>
-              {% else %}
-                {% for r in item.roles %}
-                  {% if r.role == 'ADMIN_GROUPE' %}<span class="badge badge-admin">Admin Groupe</span>
-                  {% elif r.role == 'DIRECTEUR' %}<span class="badge badge-dir">Directeur</span>
-                  {% elif r.role == 'PROFESSEUR' %}<span class="badge badge-prof">Professeur</span>
-                  {% elif r.role == 'COMPTABLE' %}<span class="badge badge-compta">Comptable</span>
-                  {% elif r.role == 'CAISSIER' %}<span class="badge badge-compta">Caissier</span>
-                  {% elif r.role == 'PREFET' %}<span class="badge badge-dir">Préfet</span>
-                  {% elif r.role == 'SURVEILLANT' %}<span class="badge badge-autre">Surveillant</span>
-                  {% else %}<span class="badge badge-autre">{{ r.role }}</span>
-                  {% endif %}
-                {% endfor %}
-              {% endif %}
+              {% for r in item.roles %}
+                {% if r.role == 'DIRECTEUR' %}<span class="badge badge-dir">Directeur</span>
+                {% elif r.role == 'PREFET' %}<span class="badge badge-dir">Préfet</span>
+                {% elif r.role == 'COMPTABLE' %}<span class="badge badge-compta">Comptable</span>
+                {% elif r.role == 'CAISSIER' %}<span class="badge badge-compta">Caissier</span>
+                {% elif r.role == 'PROFESSEUR' %}<span class="badge badge-prof">Professeur</span>
+                {% elif r.role == 'SURVEILLANT' %}<span class="badge badge-autre">Surveillant</span>
+                {% else %}<span class="badge badge-autre">{{ r.role }}</span>
+                {% endif %}
+              {% endfor %}
             </td>
-            <td>
-              {% if u.is_superuser %}
-                <span style="color:#374151;font-size:11.5px;">Tous établissements</span>
-              {% else %}
-                {% for r in item.roles %}
-                  {% if r.etablissement %}
-                  <span class="etab-tag">{{ r.etablissement.sigle }}</span>
-                  {% else %}
-                  <span style="color:#374151;font-size:11.5px;">Groupe</span>
-                  {% endif %}
-                {% endfor %}
-              {% endif %}
-            </td>
+            <td><span class="user-email">{{ u.email }}</span></td>
             <td><span class="pw-cell">{{ mot_de_passe }}</span></td>
           </tr>
           {% endwith %}
@@ -259,14 +278,71 @@
         </tbody>
       </table>
     </div>
-  </div>
 
-  <!-- Notice -->
+    <!-- Élèves (collapsible) -->
+    {% if ed.eleves %}
+    <details>
+      <summary>
+        <svg class="chevron" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+        </svg>
+        Élèves — {{ ed.eleves|length }} comptes
+        <span style="margin-left:auto;font-size:11px;font-weight:400;color:#4b5563;">Cliquez pour déplier</span>
+      </summary>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Élève</th>
+              <th>Type</th>
+              <th>Email</th>
+              <th>Mot de passe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for eleve in ed.eleves %}
+            <tr>
+              <td>
+                <div class="user-cell">
+                  <div class="avatar" style="background:linear-gradient(135deg,#10b981,#059669);">{{ eleve.prenom.0|upper }}{{ eleve.nom.0|upper }}</div>
+                  <div>
+                    <div class="user-name">{{ eleve.prenom }} {{ eleve.nom }}</div>
+                    <div style="font-size:10.5px;color:#4b5563;">{{ eleve.matricule }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                {% if eleve.type_eleve == 'BOURSIER' %}<span class="badge badge-prof">Boursier</span>
+                {% elif eleve.type_eleve == 'AUDITEUR' %}<span class="badge badge-autre">Auditeur</span>
+                {% else %}<span class="badge badge-eleve">Ordinaire</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if eleve.user %}
+                  <span class="user-email">{{ eleve.user.email }}</span>
+                {% else %}
+                  <span style="color:#374151;font-size:11px;">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if eleve.user %}<span class="pw-cell">{{ mot_de_passe }}</span>{% else %}<span style="color:#374151;font-size:11px;">Pas de compte</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
   <div class="notice">
     <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
     </svg>
-    <span style="color:#d97706;">Cette page est réservée au développement et expose des identifiants. Ne pas déployer en production sans la protéger ou la supprimer.</span>
+    <span>Cette page est réservée au développement et expose des identifiants. Ne pas déployer en production sans la protéger ou la supprimer.</span>
   </div>
 
 </div>

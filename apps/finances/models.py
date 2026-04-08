@@ -7,11 +7,20 @@ def generer_numero_recu():
     return str(uuid.uuid4()).replace('-', '').upper()[:10]
 
 
+class TypeCategorieFrais(models.TextChoices):
+    INSCRIPTION         = 'INSCRIPTION',         "Frais d'inscription"
+    SCOLARITE_MENSUELLE = 'SCOLARITE_MENSUELLE',  'Scolarité mensuelle'
+    AUTRE               = 'AUTRE',               'Autre'
+
+
 class TypeFrais(models.Model):
     etablissement = models.ForeignKey(
         Etablissement, on_delete=models.CASCADE, related_name='types_frais'
     )
     libelle = models.CharField(max_length=100)  # Inscription, Scolarité, Cantine, Transport…
+    categorie = models.CharField(
+        max_length=20, choices=TypeCategorieFrais.choices, default=TypeCategorieFrais.AUTRE
+    )
     montant_defaut = models.DecimalField(max_digits=12, decimal_places=2)
     niveau = models.ForeignKey(
         Niveau, on_delete=models.SET_NULL, null=True, blank=True

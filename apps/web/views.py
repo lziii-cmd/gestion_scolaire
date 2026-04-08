@@ -1,3 +1,4 @@
+import datetime
 from functools import wraps
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -6,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Sum, Q, Prefetch
+from django.http import JsonResponse
 from django.utils import timezone
 
 from apps.accounts.models import RoleUtilisateur, RoleChoices, User
@@ -14,6 +16,7 @@ from apps.scolarite.models import Inscription, Eleve, Classe, StatutInscription
 from apps.finances.models import (
     Paiement, ClotureCaisse, ModificationPaiement,
     TypeActionPaiement, StatutDemande, StatutPaiement,
+    TypeFrais, Frais, Recu, TypeCategorieFrais, StatutCloture,
 )
 from apps.notifications.models import Notification
 from apps.notes.models import ModificationNote, Note, PeriodeEvaluation, StatutNote
@@ -801,7 +804,7 @@ def finances_demander_modif(request, paiement_id):
 @roles_required(RoleChoices.DIRECTEUR, RoleChoices.PREFET,
                 RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE)
 def finances_validations(request):
-    """Page de validation des demandes de modification de paiement (directeur / préfet)."""
+    """Page de validation : demandes paiement + inscriptions EN_ATTENTE."""
     etablissement = _get_etablissement(request)
 
     demandes = ModificationPaiement.objects.filter(
@@ -811,6 +814,11 @@ def finances_validations(request):
         'paiement__inscription__eleve', 'paiement__frais__type_frais', 'demandeur'
     ).order_by('-date_demande') if etablissement else []
 
+    inscriptions_attente = Inscription.objects.filter(
+        etablissement=etablissement,
+        statut=StatutInscription.EN_ATTENTE,
+    ).select_related('eleve', 'classe', 'inscrit_par').order_by('date_inscription') if etablissement else []
+
     historique = ModificationPaiement.objects.filter(
         paiement__inscription__etablissement=etablissement,
     ).exclude(statut=StatutDemande.EN_ATTENTE).select_related(
@@ -819,6 +827,7 @@ def finances_validations(request):
 
     return render(request, 'finances/validations.html', {
         'demandes': demandes,
+        'inscriptions_attente': inscriptions_attente,
         'historique': historique,
         'etablissement': etablissement,
         'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
@@ -1038,10 +1047,13 @@ def inscription_caissier(request):
         etablissement=etablissement,
     ).select_related('eleve', 'classe').order_by('-date_inscription')[:10]
 
+    cycles = Cycle.objects.filter(etablissement=etablissement).order_by('type_cycle') if etablissement else []
+
     return render(request, 'scolarite/inscription_caissier.html', {
         'etablissement': etablissement,
         'annee': annee,
         'classes': classes,
+        'cycles': cycles,
         'types_frais': types_frais,
         'q_eleve': q_eleve,
         'eleves_trouves': eleves_trouves,
@@ -1088,6 +1100,200 @@ def inscription_valider(request, inscription_id):
         messages.warning(request, f"Inscription de {inscription.eleve.nom_complet} rejetée.")
 
     return redirect('finances_validations')
+
+
+# ─── ENCAISSEMENT ──────────────────────────────────────────────────────────────
+
+# Mois scolaires Oct → Jul
+_MOIS_SCOLAIRES = [
+    (10, 'Octobre'), (11, 'Novembre'), (12, 'Décembre'),
+    (1,  'Janvier'),  (2,  'Février'),  (3,  'Mars'),
+    (4,  'Avril'),    (5,  'Mai'),      (6,  'Juin'),   (7, 'Juillet'),
+]
+
+
+
+@roles_required(*_ROLES_FINANCES)
+def encaisser_paiement(request):
+    """
+    Page d'encaissement :
+    - GET sans params : formulaire de recherche d'élève
+    - GET ?inscription_id=X : situation financière de l'élève
+    - POST : crée le paiement + reçu
+    """
+    user = request.user
+    etablissement = _get_etablissement(request)
+    if not etablissement:
+        messages.error(request, "Veuillez sélectionner un établissement.")
+        return redirect('dashboard')
+
+    annee = AnneeScolaire.objects.filter(etablissement=etablissement, is_active=True).first()
+
+    # ── Recherche élève ───────────────────────────────────────────────────────
+    q = request.GET.get('q', '').strip()
+    eleves_trouves = []
+    if q:
+        eleves_trouves = list(
+            Eleve.objects.filter(
+                Q(nom__icontains=q) | Q(prenom__icontains=q) | Q(matricule__icontains=q)
+            ).order_by('nom', 'prenom')[:10]
+        )
+
+    # ── Situation financière d'une inscription ───────────────────────────────
+    inscription = None
+    frais_data = []
+    total_annuel = 0
+    total_paye = 0
+
+    inscription_id = request.GET.get('inscription_id') or request.POST.get('inscription_id')
+    if inscription_id:
+        try:
+            inscription = Inscription.objects.select_related(
+                'eleve', 'classe', 'classe__niveau', 'annee_scolaire'
+            ).get(pk=inscription_id, etablissement=etablissement, statut=StatutInscription.ACTIF)
+        except Inscription.DoesNotExist:
+            messages.error(request, "Inscription introuvable ou non active.")
+
+    if inscription:
+        # Récupère ou crée les frais standards depuis les TypeFrais actifs pour ce niveau
+        types_actifs = TypeFrais.objects.filter(
+            etablissement=etablissement, is_active=True
+        ).filter(
+            Q(niveau=inscription.classe.niveau) | Q(niveau__isnull=True)
+        ).filter(
+            Q(annee_scolaire=annee) | Q(annee_scolaire__isnull=True)
+        )
+
+        for tf in types_actifs.order_by('categorie', 'libelle'):
+            frais, _ = Frais.objects.get_or_create(
+                inscription=inscription,
+                type_frais=tf,
+                defaults={
+                    'montant': tf.montant_defaut,
+                    'created_by': user,
+                },
+            )
+            paye = frais.paiements.filter(statut=StatutPaiement.VALIDE).aggregate(t=Sum('montant'))['t'] or 0
+            solde = frais.montant - paye
+            frais_data.append({
+                'frais': frais,
+                'type_frais': tf,
+                'paye': paye,
+                'solde': solde,
+                'solde_positif': solde > 0,
+            })
+            total_annuel += frais.montant
+            total_paye += paye
+
+    # ── POST : créer le(s) paiement(s) ──────────────────────────────────────
+    if request.method == 'POST' and inscription:
+        observation = request.POST.get('observation', '').strip()
+
+        # Multi-select
+        frais_ids = request.POST.getlist('frais_ids')
+        if frais_ids:
+            total_paid = 0
+            nb_paid = 0
+            last_recu = None
+            for fid in frais_ids:
+                try:
+                    frais_obj = Frais.objects.get(pk=fid, inscription=inscription)
+                    paye = frais_obj.paiements.filter(statut=StatutPaiement.VALIDE).aggregate(t=Sum('montant'))['t'] or 0
+                    solde = frais_obj.montant - paye
+                    if solde > 0:
+                        paiement = Paiement.objects.create(
+                            inscription=inscription,
+                            frais=frais_obj,
+                            montant=solde,
+                            caissier=user,
+                            observation=observation,
+                            statut=StatutPaiement.VALIDE,
+                        )
+                        last_recu = Recu.objects.create(paiement=paiement)
+                        total_paid += solde
+                        nb_paid += 1
+                except (Frais.DoesNotExist, Exception):
+                    pass
+            if nb_paid:
+                messages.success(request, f"{nb_paid} paiement(s) enregistré(s) — {total_paid:,.0f} FCFA.")
+            return redirect(f"{request.path}?inscription_id={inscription.id}")
+
+        # Paiement simple
+        frais_id    = request.POST.get('frais_id', '')
+        montant_raw = request.POST.get('montant', '').strip().replace(',', '.')
+
+        try:
+            frais_obj = Frais.objects.get(pk=frais_id, inscription=inscription)
+            montant = float(montant_raw)
+            if montant <= 0:
+                raise ValueError
+        except (ValueError, TypeError, Frais.DoesNotExist):
+            messages.error(request, "Montant ou frais invalide.")
+            return redirect(f"{request.path}?inscription_id={inscription.id}")
+
+        paiement = Paiement.objects.create(
+            inscription=inscription,
+            frais=frais_obj,
+            montant=montant,
+            caissier=user,
+            observation=observation,
+            statut=StatutPaiement.VALIDE,
+        )
+        recu = Recu.objects.create(paiement=paiement)
+        messages.success(request, f"Paiement de {montant:,.0f} FCFA enregistré.")
+        return redirect('recu_print', recu_id=recu.id)
+
+    return render(request, 'finances/encaisser.html', {
+        'etablissement': etablissement,
+        'annee': annee,
+        'q': q,
+        'eleves_trouves': eleves_trouves,
+        'inscription': inscription,
+        'frais_data': frais_data,
+        'total_annuel': total_annuel,
+        'total_paye': total_paye,
+        'total_solde': total_annuel - total_paye,
+        'notifs_non_lues': Notification.objects.filter(destinataire=user, lue=False).count(),
+    })
+
+
+@roles_required(*_ROLES_FINANCES)
+def recu_print(request, recu_id):
+    """Page d'impression du reçu (standalone, sans base.html)."""
+    user = request.user
+    etablissement = _get_etablissement(request)
+
+    user_roles = set(user.roles.filter(is_active=True).values_list('role', flat=True))
+    _roles_superieurs = {
+        RoleChoices.COMPTABLE, RoleChoices.DIRECTEUR,
+        RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE,
+    }
+    is_caissier_only = RoleChoices.CAISSIER in user_roles and not (user_roles & _roles_superieurs)
+
+    if is_caissier_only:
+        recu = get_object_or_404(
+            Recu.objects.select_related(
+                'paiement__inscription__eleve', 'paiement__inscription__classe',
+                'paiement__frais__type_frais', 'paiement__caissier',
+            ),
+            pk=recu_id,
+            paiement__caissier=user,
+        )
+    else:
+        recu = get_object_or_404(
+            Recu.objects.select_related(
+                'paiement__inscription__eleve', 'paiement__inscription__classe',
+                'paiement__frais__type_frais', 'paiement__caissier',
+            ),
+            pk=recu_id,
+            paiement__inscription__etablissement=etablissement,
+        )
+
+    return render(request, 'finances/recu.html', {
+        'recu': recu,
+        'paiement': recu.paiement,
+        'etablissement': recu.paiement.inscription.etablissement,
+    })
 
 
 # ─── ABSENCES ──────────────────────────────────────────────────────────────────
@@ -1196,10 +1402,206 @@ def emploi_du_temps(request):
 
 @login_required
 def notifications_list(request):
+    # Marquer toutes comme lues si demandé
+    if request.POST.get('action') == 'marquer_tout_lu':
+        Notification.objects.filter(destinataire=request.user, lue=False).update(lue=True)
+        return redirect('notifications_list')
+
     notifs = Notification.objects.filter(destinataire=request.user).order_by('-created_at')
+    non_lues = notifs.filter(lue=False)
+    lues = notifs.filter(lue=True)
     return render(request, 'notifications/list.html', {
-        'notifs': notifs,
-        'notifs_non_lues': notifs.filter(lue=False).count(),
+        'non_lues': non_lues,
+        'lues': lues,
+        'notifs_non_lues': non_lues.count(),
+    })
+
+
+@login_required
+def notification_marquer_lu(request, notif_id):
+    notif = get_object_or_404(Notification, pk=notif_id, destinataire=request.user)
+    notif.lue = True
+    notif.save(update_fields=['lue'])
+    next_url = request.GET.get('next', 'notifications_list')
+    return redirect(next_url)
+
+
+# ─── CAISSE — OUVERTURE / FERMETURE ────────────────────────────────────────────
+
+@roles_required(*_ROLES_FINANCES)
+def caisse_toggle(request):
+    """Ouvrir ou fermer la caisse avec vérification du code PIN."""
+    if request.method != 'POST':
+        return redirect('finances_index')
+
+    user = request.user
+    etablissement = _get_etablissement(request)
+    if not etablissement:
+        return redirect('finances_index')
+
+    today = timezone.localdate()
+    action = request.POST.get('action', 'ouvrir')
+
+    if action == 'ouvrir':
+        pin = request.POST.get('pin', '')
+        if not user.check_pin_caisse(pin):
+            messages.error(request, "Code PIN incorrect. Veuillez réessayer.")
+            return redirect('finances_index')
+
+        cloture, created = ClotureCaisse.objects.get_or_create(
+            etablissement=etablissement,
+            date=today,
+            defaults={'caissier': user, 'statut': StatutCloture.OUVERTE, 'total_encaisse': 0}
+        )
+        if not created and cloture.statut == StatutCloture.CLOTUREE:
+            cloture.statut = StatutCloture.OUVERTE
+            cloture.save(update_fields=['statut'])
+
+        request.session['caisse_unlocked'] = True
+        messages.success(request, "Caisse ouverte. Bonne journée !")
+
+    elif action == 'fermer':
+        cloture = ClotureCaisse.objects.filter(
+            etablissement=etablissement, date=today
+        ).first()
+        if cloture and cloture.statut == StatutCloture.OUVERTE:
+            total = Paiement.objects.filter(
+                inscription__etablissement=etablissement,
+                caissier=user,
+                date_paiement__date=today,
+                statut=StatutPaiement.VALIDE,
+            ).aggregate(t=Sum('montant'))['t'] or 0
+            cloture.total_encaisse = total
+            cloture.statut = StatutCloture.CLOTUREE
+            cloture.cloture_at = timezone.now()
+            cloture.save()
+
+        request.session.pop('caisse_unlocked', None)
+        messages.success(request, "Caisse fermée.")
+
+    return redirect('finances_index')
+
+
+# ─── REÇUS ÉLÈVE ───────────────────────────────────────────────────────────────
+
+@roles_required(*_ROLES_FINANCES)
+def recus_eleve(request):
+    """Tous les reçus d'un élève pour une année scolaire donnée."""
+    etablissement = _get_etablissement(request)
+    annees = AnneeScolaire.objects.filter(
+        etablissement=etablissement
+    ).order_by('-date_debut') if etablissement else []
+
+    eleve_id = request.GET.get('eleve_id', '')
+    annee_id = request.GET.get('annee_id', '')
+    q = request.GET.get('q', '').strip()
+
+    eleve = None
+    recus = []
+    eleves_result = []
+
+    if eleve_id:
+        try:
+            eleve = Eleve.objects.get(pk=eleve_id)
+        except Eleve.DoesNotExist:
+            pass
+
+    if q:
+        eleves_result = list(
+            Eleve.objects.filter(
+                Q(nom__icontains=q) | Q(prenom__icontains=q) | Q(matricule__icontains=q),
+                inscriptions__etablissement=etablissement,
+            ).order_by('nom', 'prenom').distinct()[:10]
+        )
+
+    if eleve and annee_id:
+        recus = list(Recu.objects.filter(
+            paiement__inscription__eleve=eleve,
+            paiement__inscription__etablissement=etablissement,
+            paiement__inscription__annee_scolaire_id=annee_id,
+            paiement__statut=StatutPaiement.VALIDE,
+        ).select_related(
+            'paiement__frais__type_frais',
+            'paiement__inscription__classe',
+            'paiement__caissier',
+        ).order_by('-date_generation'))
+
+    total_recus = sum(r.paiement.montant for r in recus)
+
+    return render(request, 'finances/recus_eleve.html', {
+        'etablissement': etablissement,
+        'annees': annees,
+        'eleve': eleve,
+        'annee_id': annee_id,
+        'recus': recus,
+        'total_recus': total_recus,
+        'q': q,
+        'eleves_result': eleves_result,
+        'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
+    })
+
+
+# ─── AUTOCOMPLETE JSON ──────────────────────────────────────────────────────────
+
+@login_required
+def eleve_search_json(request):
+    """JSON: autocomplete élève — exclut les déjà inscrits cette année."""
+    q = request.GET.get('q', '').strip()
+    etablissement = _get_etablissement(request)
+
+    if not q or len(q) < 2:
+        return JsonResponse({'results': []})
+
+    annee = AnneeScolaire.objects.filter(
+        etablissement=etablissement, is_active=True
+    ).first() if etablissement else None
+
+    enrolled_ids = set(
+        Inscription.objects.filter(
+            etablissement=etablissement, annee_scolaire=annee
+        ).values_list('eleve_id', flat=True)
+    ) if annee else set()
+
+    # Multi-mots : chaque mot filtré sur nom ou prénom
+    words = q.split()
+    qs = Eleve.objects.exclude(id__in=enrolled_ids)
+    for w in words:
+        qs = qs.filter(Q(nom__icontains=w) | Q(prenom__icontains=w) | Q(matricule__icontains=w))
+    qs = qs.order_by('nom', 'prenom')[:10]
+
+    results = []
+    for e in list(qs):
+        last_insc = e.inscriptions.order_by('-date_inscription').first()
+        results.append({
+            'id': e.id,
+            'nom': e.nom,
+            'prenom': e.prenom,
+            'matricule': e.matricule,
+            'last_classe': last_insc.classe.nom if last_insc else '',
+            'initials': f"{e.prenom[0].upper()}{e.nom[0].upper()}",
+        })
+
+    return JsonResponse({'results': results})
+
+
+@login_required
+def classes_par_cycle_json(request):
+    """JSON: classes filtrées par cycle."""
+    etablissement = _get_etablissement(request)
+    cycle_type = request.GET.get('cycle', '')
+    annee = AnneeScolaire.objects.filter(
+        etablissement=etablissement, is_active=True
+    ).first() if etablissement else None
+
+    qs = Classe.objects.filter(
+        etablissement=etablissement, annee_scolaire=annee
+    ).select_related('niveau', 'niveau__cycle').order_by('niveau__ordre', 'nom')
+
+    if cycle_type:
+        qs = qs.filter(niveau__cycle__type_cycle=cycle_type)
+
+    return JsonResponse({
+        'classes': [{'id': c.id, 'nom': c.nom, 'niveau': c.niveau.nom} for c in qs]
     })
 
 
@@ -1318,26 +1720,48 @@ def changer_etablissement(request, etab_id):
 
 def extra_usage(request):
     """Page non protégée listant tous les comptes de test (dev only)."""
-    users = User.objects.prefetch_related(
-        'roles__etablissement'
-    ).order_by('roles__etablissement__nom', 'email')
-
-    accounts = []
-    seen = set()
-    for user in users:
-        if user.id in seen:
-            continue
-        seen.add(user.id)
-        roles = list(user.roles.filter(is_active=True).select_related('etablissement'))
-        accounts.append({
-            'user': user,
-            'roles': roles,
-        })
+    from apps.scolarite.models import Eleve
 
     etablissements = Etablissement.objects.filter(is_active=True).order_by('nom')
 
+    ROLES_STAFF = {
+        RoleChoices.DIRECTEUR, RoleChoices.PREFET, RoleChoices.COMPTABLE,
+        RoleChoices.CAISSIER, RoleChoices.SURVEILLANT, RoleChoices.PROFESSEUR,
+        RoleChoices.ADMIN_GROUPE, RoleChoices.PRESIDENT_GROUPE, RoleChoices.DIRIGEANT_GROUPE,
+    }
+
+    # Superadmin
+    superadmins = list(User.objects.filter(is_superuser=True).order_by('email'))
+
+    # Staff par étab
+    etabs_data = []
+    for etab in etablissements:
+        staff = []
+        seen = set()
+        qs = User.objects.filter(
+            roles__etablissement=etab,
+            roles__is_active=True,
+        ).prefetch_related('roles__etablissement').order_by('roles__role', 'email').distinct()
+        for u in qs:
+            if u.id in seen:
+                continue
+            seen.add(u.id)
+            roles = [r for r in u.roles.filter(is_active=True) if r.role in ROLES_STAFF]
+            if roles:
+                staff.append({'user': u, 'roles': roles})
+
+        eleves = list(
+            Eleve.objects.filter(
+                inscriptions__etablissement=etab,
+                inscriptions__statut='ACTIF',
+            ).select_related('user').prefetch_related('user__roles').order_by('nom', 'prenom').distinct()
+        )
+
+        etabs_data.append({'etab': etab, 'staff': staff, 'eleves': eleves})
+
     return render(request, 'extra_usage.html', {
-        'accounts': accounts,
+        'superadmins': superadmins,
+        'etabs_data': etabs_data,
         'etablissements': etablissements,
         'mot_de_passe': 'admin1234',
     })
