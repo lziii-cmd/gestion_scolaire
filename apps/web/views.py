@@ -1160,9 +1160,11 @@ def encaisser_paiement(request):
             etablissement=etablissement, is_active=True
         ).filter(
             Q(niveau=inscription.classe.niveau) | Q(niveau__isnull=True)
-        ).filter(
-            Q(annee_scolaire=annee) | Q(annee_scolaire__isnull=True)
         )
+        if annee:
+            types_actifs = types_actifs.filter(
+                Q(annee_scolaire=annee) | Q(annee_scolaire__isnull=True)
+            )
 
         for tf in types_actifs.order_by('categorie', 'libelle'):
             frais, _ = Frais.objects.get_or_create(
