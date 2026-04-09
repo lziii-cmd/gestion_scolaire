@@ -1488,7 +1488,7 @@ def caisse_toggle(request):
 
 @roles_required(*_ROLES_FINANCES)
 def recus_eleve(request):
-    """Tous les reçus d'un élève pour une année scolaire donnée."""
+    """Tous les reçus d'un élève, filtrable par année scolaire."""
     etablissement = _get_etablissement(request)
     annees = AnneeScolaire.objects.filter(
         etablissement=etablissement
@@ -1496,11 +1496,9 @@ def recus_eleve(request):
 
     eleve_id = request.GET.get('eleve_id', '')
     annee_id = request.GET.get('annee_id', '')
-    q = request.GET.get('q', '').strip()
 
     eleve = None
     recus = []
-    eleves_result = []
 
     if eleve_id:
         try:
@@ -1508,25 +1506,20 @@ def recus_eleve(request):
         except Eleve.DoesNotExist:
             pass
 
-    if q:
-        eleves_result = list(
-            Eleve.objects.filter(
-                Q(nom__icontains=q) | Q(prenom__icontains=q) | Q(matricule__icontains=q),
-                inscriptions__etablissement=etablissement,
-            ).order_by('nom', 'prenom').distinct()[:10]
-        )
-
-    if eleve and annee_id:
-        recus = list(Recu.objects.filter(
+    if eleve:
+        qs = Recu.objects.filter(
             paiement__inscription__eleve=eleve,
             paiement__inscription__etablissement=etablissement,
-            paiement__inscription__annee_scolaire_id=annee_id,
             paiement__statut=StatutPaiement.VALIDE,
         ).select_related(
             'paiement__frais__type_frais',
             'paiement__inscription__classe',
+            'paiement__inscription__annee_scolaire',
             'paiement__caissier',
-        ).order_by('-date_generation'))
+        )
+        if annee_id:
+            qs = qs.filter(paiement__inscription__annee_scolaire_id=annee_id)
+        recus = list(qs.order_by('-date_generation'))
 
     total_recus = sum(r.paiement.montant for r in recus)
 
@@ -1537,8 +1530,64 @@ def recus_eleve(request):
         'annee_id': annee_id,
         'recus': recus,
         'total_recus': total_recus,
+        'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
+    })
+
+
+# ─── LISTE DES INSCRIPTIONS ────────────────────────────────────────────────────
+
+@roles_required(*_ROLES_FINANCES)
+def inscriptions_liste(request):
+    """Liste paginée des inscriptions de l'établissement."""
+    etablissement = _get_etablissement(request)
+    if not etablissement:
+        messages.error(request, "Veuillez sélectionner un établissement.")
+        return redirect('dashboard')
+
+    annee = AnneeScolaire.objects.filter(etablissement=etablissement, is_active=True).first()
+    annees = AnneeScolaire.objects.filter(etablissement=etablissement).order_by('-date_debut')
+    annee_id = request.GET.get('annee_id', str(annee.id) if annee else '')
+    statut_filter = request.GET.get('statut', '')
+    classe_id = request.GET.get('classe_id', '')
+    q = request.GET.get('q', '').strip()
+
+    qs = Inscription.objects.filter(
+        etablissement=etablissement
+    ).select_related('eleve', 'classe', 'classe__niveau', 'annee_scolaire')
+
+    if annee_id:
+        qs = qs.filter(annee_scolaire_id=annee_id)
+    if statut_filter:
+        qs = qs.filter(statut=statut_filter)
+    if classe_id:
+        qs = qs.filter(classe_id=classe_id)
+    if q:
+        words = q.split()
+        for w in words:
+            qs = qs.filter(
+                Q(eleve__nom__icontains=w) | Q(eleve__prenom__icontains=w) | Q(eleve__matricule__icontains=w)
+            )
+
+    qs = qs.order_by('-date_inscription', 'eleve__nom')
+
+    classes = Classe.objects.filter(
+        etablissement=etablissement, annee_scolaire_id=annee_id
+    ).order_by('nom') if annee_id else []
+
+    paginator = Paginator(qs, 50)
+    page = request.GET.get('page', 1)
+    inscriptions = paginator.get_page(page)
+
+    return render(request, 'scolarite/inscriptions_liste.html', {
+        'etablissement': etablissement,
+        'inscriptions': inscriptions,
+        'annees': annees,
+        'annee_id': annee_id,
+        'classes': classes,
+        'statut_filter': statut_filter,
+        'classe_id': classe_id,
         'q': q,
-        'eleves_result': eleves_result,
+        'total_count': qs.count(),
         'notifs_non_lues': Notification.objects.filter(destinataire=request.user, lue=False).count(),
     })
 
@@ -1547,26 +1596,30 @@ def recus_eleve(request):
 
 @login_required
 def eleve_search_json(request):
-    """JSON: autocomplete élève — exclut les déjà inscrits cette année."""
+    """JSON: autocomplete élève. all=1 inclut les déjà inscrits (pour reçus, etc.)."""
     q = request.GET.get('q', '').strip()
+    all_eleves = request.GET.get('all', '0') == '1'
     etablissement = _get_etablissement(request)
 
     if not q or len(q) < 2:
         return JsonResponse({'results': []})
 
-    annee = AnneeScolaire.objects.filter(
-        etablissement=etablissement, is_active=True
-    ).first() if etablissement else None
-
-    enrolled_ids = set(
-        Inscription.objects.filter(
-            etablissement=etablissement, annee_scolaire=annee
-        ).values_list('eleve_id', flat=True)
-    ) if annee else set()
-
     # Multi-mots : chaque mot filtré sur nom ou prénom
     words = q.split()
-    qs = Eleve.objects.exclude(id__in=enrolled_ids)
+    qs = Eleve.objects.all()
+
+    if not all_eleves:
+        # Mode inscription : exclure les déjà inscrits cette année
+        annee = AnneeScolaire.objects.filter(
+            etablissement=etablissement, is_active=True
+        ).first() if etablissement else None
+        enrolled_ids = set(
+            Inscription.objects.filter(
+                etablissement=etablissement, annee_scolaire=annee
+            ).values_list('eleve_id', flat=True)
+        ) if annee else set()
+        qs = qs.exclude(id__in=enrolled_ids)
+
     for w in words:
         qs = qs.filter(Q(nom__icontains=w) | Q(prenom__icontains=w) | Q(matricule__icontains=w))
     qs = qs.order_by('nom', 'prenom')[:10]

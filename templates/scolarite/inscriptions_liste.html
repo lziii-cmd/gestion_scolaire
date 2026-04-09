@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Inscriptions{% endblock %}
+{% block page_title %}Inscriptions{% endblock %}
+{% block page_subtitle %}Liste des élèves inscrits — {{ annee_id|default:"toutes les années" }}{% endblock %}
+
+{% block content %}
+
+<!-- Barre de filtres -->
+<form method="get" action="">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+
+    <!-- Recherche texte -->
+    <div style="display:flex;align-items:center;gap:8px;padding:9px 13px;background:#0e1422;border:1px solid rgba(255,255,255,.1);border-radius:9px;flex:1;min-width:200px;">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:#4b5563;flex-shrink:0;">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+      </svg>
+      <input name="q" value="{{ q }}" placeholder="Nom, prénom, matricule…"
+             style="flex:1;background:transparent;border:none;color:#f1f5f9;font-size:13px;outline:none;">
+    </div>
+
+    <!-- Année -->
+    <select name="annee_id"
+            style="padding:9px 13px;background:#0e1422;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#f1f5f9;font-size:13px;outline:none;cursor:pointer;">
+      <option value="">— Toutes les années —</option>
+      {% for annee in annees %}
+      <option value="{{ annee.id }}" {% if annee.id|stringformat:"s" == annee_id %}selected{% endif %}>{{ annee.libelle }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- Classe -->
+    {% if classes %}
+    <select name="classe_id"
+            style="padding:9px 13px;background:#0e1422;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#f1f5f9;font-size:13px;outline:none;cursor:pointer;">
+      <option value="">— Toutes les classes —</option>
+      {% for cls in classes %}
+      <option value="{{ cls.id }}" {% if cls.id|stringformat:"s" == classe_id %}selected{% endif %}>{{ cls.nom }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+
+    <!-- Statut -->
+    <select name="statut"
+            style="padding:9px 13px;background:#0e1422;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#f1f5f9;font-size:13px;outline:none;cursor:pointer;">
+      <option value="">— Tous les statuts —</option>
+      <option value="ACTIF"      {% if statut_filter == 'ACTIF' %}selected{% endif %}>Actif</option>
+      <option value="EN_ATTENTE" {% if statut_filter == 'EN_ATTENTE' %}selected{% endif %}>En attente</option>
+      <option value="REJETE"     {% if statut_filter == 'REJETE' %}selected{% endif %}>Rejeté</option>
+    </select>
+
+    <button type="submit"
+            style="padding:9px 16px;border-radius:9px;background:#6366f1;border:none;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
+      Filtrer
+    </button>
+
+    {% if q or statut_filter or classe_id %}
+    <a href="?annee_id={{ annee_id }}"
+       style="padding:9px 14px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#64748b;text-decoration:none;font-size:13px;font-weight:500;">
+      Réinitialiser
+    </a>
+    {% endif %}
+
+    <!-- Compteur -->
+    <div style="margin-left:auto;font-size:12px;color:#4b5563;white-space:nowrap;">
+      <span style="font-weight:700;color:#e2e8f0;">{{ total_count }}</span> inscription{{ total_count|pluralize }}
+    </div>
+
+    <!-- Bouton nouvelle inscription -->
+    <a href="{% url 'inscription_caissier' %}"
+       style="display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap;">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+      </svg>
+      Nouvelle inscription
+    </a>
+  </div>
+</form>
+
+<!-- Table -->
+{% if inscriptions %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Élève</th>
+        <th>Classe</th>
+        <th>Année</th>
+        <th>Statut</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for insc in inscriptions %}
+      <tr class="tr">
+        <!-- Élève -->
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;
+              {% if insc.statut == 'ACTIF' %}background:linear-gradient(135deg,#10b981,#059669);
+              {% elif insc.statut == 'EN_ATTENTE' %}background:linear-gradient(135deg,#f59e0b,#d97706);
+              {% else %}background:linear-gradient(135deg,#ef4444,#dc2626);{% endif %}">
+              {{ insc.eleve.prenom.0|upper }}{{ insc.eleve.nom.0|upper }}
+            </div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#e2e8f0;">{{ insc.eleve.prenom }} {{ insc.eleve.nom }}</div>
+              <div style="font-size:11px;color:#4b5563;">{{ insc.eleve.matricule }}</div>
+            </div>
+          </div>
+        </td>
+
+        <!-- Classe -->
+        <td><span style="font-size:12.5px;color:#94a3b8;">{{ insc.classe.nom }}</span></td>
+
+        <!-- Année -->
+        <td><span style="font-size:12px;color:#4b5563;">{{ insc.annee_scolaire.libelle }}</span></td>
+
+        <!-- Statut -->
+        <td>
+          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;
+            {% if insc.statut == 'ACTIF' %}background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);
+            {% elif insc.statut == 'EN_ATTENTE' %}background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2);
+            {% else %}background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);{% endif %}">
+            {% if insc.statut == 'ACTIF' %}Actif
+            {% elif insc.statut == 'EN_ATTENTE' %}En attente
+            {% elif insc.statut == 'REJETE' %}Rejeté
+            {% else %}{{ insc.statut }}{% endif %}
+          </span>
+        </td>
+
+        <!-- Date -->
+        <td><span style="font-size:12px;color:#4b5563;">{{ insc.date_inscription|date:"d/m/Y" }}</span></td>
+
+        <!-- Actions -->
+        <td>
+          <div style="display:flex;align-items:center;gap:7px;">
+            <!-- Reçus de cet élève -->
+            <a href="{% url 'recus_eleve' %}?eleve_id={{ insc.eleve.id }}&annee_id={{ insc.annee_scolaire.id }}"
+               style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.18);color:#818cf8;text-decoration:none;font-size:11.5px;font-weight:600;">
+              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+              </svg>
+              Reçus
+            </a>
+
+            <!-- Encaisser -->
+            <a href="{% url 'encaisser_paiement' %}?inscription_id={{ insc.id }}"
+               style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.18);color:#34d399;text-decoration:none;font-size:11.5px;font-weight:600;">
+              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+              </svg>
+              Encaisser
+            </a>
+
+            <!-- Valider (si en attente) -->
+            {% if insc.statut == 'EN_ATTENTE' %}
+            <a href="{% url 'inscription_valider' insc.id %}"
+               style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.18);color:#fbbf24;text-decoration:none;font-size:11.5px;font-weight:600;">
+              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Valider
+            </a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if inscriptions.has_other_pages %}
+<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;">
+  {% if inscriptions.has_previous %}
+  <a href="?page={{ inscriptions.previous_page_number }}&q={{ q }}&annee_id={{ annee_id }}&classe_id={{ classe_id }}&statut={{ statut_filter }}"
+     style="padding:6px 12px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#94a3b8;text-decoration:none;font-size:12px;">← Précédent</a>
+  {% endif %}
+  <span style="font-size:12px;color:#4b5563;">Page {{ inscriptions.number }} / {{ inscriptions.paginator.num_pages }}</span>
+  {% if inscriptions.has_next %}
+  <a href="?page={{ inscriptions.next_page_number }}&q={{ q }}&annee_id={{ annee_id }}&classe_id={{ classe_id }}&statut={{ statut_filter }}"
+     style="padding:6px 12px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#94a3b8;text-decoration:none;font-size:12px;">Suivant →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="card" style="padding:60px 20px;text-align:center;">
+  <div style="width:52px;height:52px;border-radius:14px;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+    <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="color:#6366f1;">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+    </svg>
+  </div>
+  <div style="font-size:14px;font-weight:600;color:#64748b;margin-bottom:6px;">Aucune inscription trouvée</div>
+  <div style="font-size:12px;color:#374151;margin-bottom:16px;">
+    {% if q or statut_filter or classe_id %}Modifiez vos filtres ou{% else %}Commencez par{% endif %} créer une nouvelle inscription.
+  </div>
+  <a href="{% url 'inscription_caissier' %}"
+     style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;font-size:13px;font-weight:600;">
+    + Nouvelle inscription
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}

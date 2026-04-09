@@ -75,31 +75,61 @@
   <div>
     {% if inscription %}
 
-    <!-- En-tête élève + totaux -->
-    <div class="card" style="padding:16px 20px;margin-bottom:14px;">
-      <div style="display:flex;align-items:center;gap:14px;">
-        <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:700;flex-shrink:0;">
+    <!-- En-tête élève + totaux (redesign) -->
+    <div style="background:linear-gradient(135deg,#0e1422 0%,#111827 100%);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px 22px;margin-bottom:16px;position:relative;overflow:hidden;">
+      <!-- Fond décoratif -->
+      <div style="position:absolute;top:-30px;right:-30px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,.08) 0%,transparent 70%);pointer-events:none;"></div>
+
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+        <!-- Avatar -->
+        <div style="width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;color:white;font-size:16px;font-weight:800;flex-shrink:0;box-shadow:0 6px 18px rgba(16,185,129,.3);">
           {{ inscription.eleve.prenom.0|upper }}{{ inscription.eleve.nom.0|upper }}
         </div>
-        <div style="flex:1;">
-          <div style="font-size:15px;font-weight:700;color:#e2e8f0;">{{ inscription.eleve.prenom }} {{ inscription.eleve.nom }}</div>
-          <div style="font-size:11.5px;color:#374151;">{{ inscription.eleve.matricule }} · {{ inscription.classe.nom }} · {{ inscription.annee_scolaire.libelle }}</div>
+        <!-- Identité -->
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:17px;font-weight:800;color:#f1f5f9;letter-spacing:-.01em;">{{ inscription.eleve.prenom }} {{ inscription.eleve.nom }}</div>
+          <div style="font-size:12px;color:#4b5563;margin-top:2px;display:flex;align-items:center;gap:8px;">
+            <span>{{ inscription.eleve.matricule }}</span>
+            <span style="width:3px;height:3px;border-radius:50%;background:#374151;flex-shrink:0;"></span>
+            <span style="color:#6366f1;font-weight:600;">{{ inscription.classe.nom }}</span>
+            <span style="width:3px;height:3px;border-radius:50%;background:#374151;flex-shrink:0;"></span>
+            <span>{{ inscription.annee_scolaire.libelle }}</span>
+          </div>
         </div>
-        <div style="display:flex;gap:16px;text-align:right;">
-          <div>
-            <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151;">Total annuel</div>
-            <div style="font-size:16px;font-weight:700;color:#e2e8f0;">{{ total_annuel|floatformat:0 }} <span style="font-size:10px;">FCFA</span></div>
+        <!-- 3 métriques -->
+        <div style="display:flex;gap:10px;flex-shrink:0;">
+          <div style="padding:10px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:11px;text-align:center;min-width:110px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#4b5563;margin-bottom:4px;">Total annuel</div>
+            <div style="font-size:17px;font-weight:800;color:#94a3b8;">{{ total_annuel|floatformat:0 }}</div>
+            <div style="font-size:10px;color:#374151;margin-top:1px;">FCFA</div>
           </div>
-          <div>
-            <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151;">Payé</div>
-            <div style="font-size:16px;font-weight:700;color:#34d399;">{{ total_paye|floatformat:0 }} <span style="font-size:10px;">FCFA</span></div>
+          <div style="padding:10px 16px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:11px;text-align:center;min-width:110px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#059669;margin-bottom:4px;">Payé</div>
+            <div style="font-size:17px;font-weight:800;color:#34d399;">{{ total_paye|floatformat:0 }}</div>
+            <div style="font-size:10px;color:#059669;margin-top:1px;">FCFA</div>
           </div>
-          <div>
-            <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151;">Reste dû</div>
-            <div style="font-size:20px;font-weight:800;color:{% if total_solde > 0 %}#f87171{% else %}#34d399{% endif %};">{{ total_solde|floatformat:0 }} <span style="font-size:10px;">FCFA</span></div>
+          <div style="padding:10px 16px;border:1px solid;border-radius:11px;text-align:center;min-width:110px;
+            {% if total_solde > 0 %}background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.25);{% else %}background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.2);{% endif %}">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;{% if total_solde > 0 %}color:#dc2626;{% else %}color:#059669;{% endif %}">Reste dû</div>
+            <div style="font-size:22px;font-weight:900;{% if total_solde > 0 %}color:#f87171;{% else %}color:#34d399;{% endif %}">{{ total_solde|floatformat:0 }}</div>
+            <div style="font-size:10px;margin-top:1px;{% if total_solde > 0 %}color:#dc2626;{% else %}color:#059669;{% endif %}">FCFA</div>
           </div>
         </div>
       </div>
+
+      <!-- Barre de progression -->
+      {% if total_annuel > 0 %}
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+          <span style="font-size:10.5px;color:#374151;font-weight:600;">Progression du paiement</span>
+          <span style="font-size:10.5px;font-weight:700;color:#34d399;">{% widthratio total_paye total_annuel 100 %}%</span>
+        </div>
+        <div style="height:5px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;">
+          <div style="height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:99px;transition:width .4s;"
+               style="width:{% widthratio total_paye total_annuel 100 %}%"></div>
+        </div>
+      </div>
+      {% endif %}
     </div>
 
     <!-- Formulaire multi-sélection -->
@@ -148,79 +178,112 @@
       {% endif %}
 
       <!-- Liste des frais -->
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
         {% for fd in frais_data %}
-        <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#0e1422;border:1px solid rgba(255,255,255,.06);border-radius:11px;transition:border-color .15s;"
-             :style="selected.includes('{{ fd.frais.id }}') ? 'border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.05);' : ''">
+        <div style="position:relative;display:flex;align-items:center;gap:14px;padding:14px 16px 14px 20px;background:#0e1422;border:1px solid rgba(255,255,255,.06);border-radius:12px;overflow:hidden;transition:border-color .15s,background .15s;"
+             :style="selected.includes('{{ fd.frais.id }}') ? 'border-color:rgba(99,102,241,.35);background:rgba(99,102,241,.04);' : ''">
 
-          <!-- Checkbox multi-select (uniquement si solde > 0) -->
+          <!-- Bande colorée gauche -->
+          <div style="position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:12px 0 0 12px;
+            {% if fd.solde == 0 %}background:linear-gradient(180deg,#10b981,#059669);
+            {% elif fd.paye > 0 %}background:linear-gradient(180deg,#f59e0b,#d97706);
+            {% else %}background:linear-gradient(180deg,#ef4444,#dc2626);{% endif %}"></div>
+
+          <!-- Checkbox / check -->
           {% if fd.solde > 0 %}
           <input type="checkbox" name="frais_ids" value="{{ fd.frais.id }}"
                  @change="toggleFrais('{{ fd.frais.id }}')"
                  :checked="selected.includes('{{ fd.frais.id }}')"
                  style="width:16px;height:16px;accent-color:#6366f1;cursor:pointer;flex-shrink:0;">
           {% else %}
-          <div style="width:16px;height:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-            <svg style="width:14px;height:14px;color:#34d399;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+          <div style="width:20px;height:20px;border-radius:6px;background:rgba(16,185,129,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" style="color:#34d399;">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
             </svg>
           </div>
           {% endif %}
 
-          <!-- Badge type -->
-          <div style="flex-shrink:0;">
+          <!-- Icône type -->
+          <div style="width:36px;height:36px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+            {% if fd.type_frais.categorie == 'INSCRIPTION' %}background:rgba(99,102,241,.1);{% else %}background:rgba(14,165,233,.08);{% endif %}">
             {% if fd.type_frais.categorie == 'INSCRIPTION' %}
-            <span style="padding:2px 8px;border-radius:5px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.2);color:#818cf8;font-size:10px;font-weight:700;">INSCRIPTION</span>
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="color:#818cf8;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"/>
+            </svg>
             {% else %}
-            <span style="padding:2px 8px;border-radius:5px;background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.2);color:#38bdf8;font-size:10px;font-weight:700;">MENSUALITÉ</span>
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="color:#38bdf8;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+            </svg>
             {% endif %}
           </div>
 
-          <!-- Libellé -->
-          <div style="flex:1;">
-            <div style="font-size:13px;font-weight:600;color:{% if fd.solde > 0 %}#e2e8f0{% else %}#4b5563{% endif %};">{{ fd.type_frais.libelle }}</div>
-            <div style="font-size:11px;color:#374151;margin-top:1px;">{{ fd.frais.montant|floatformat:0 }} FCFA</div>
+          <!-- Libellé + badge -->
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px;">
+              {% if fd.type_frais.categorie == 'INSCRIPTION' %}
+              <span style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(99,102,241,.1);color:#818cf8;border:1px solid rgba(99,102,241,.2);text-transform:uppercase;letter-spacing:.04em;">Inscription</span>
+              {% else %}
+              <span style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(14,165,233,.08);color:#38bdf8;border:1px solid rgba(14,165,233,.2);text-transform:uppercase;letter-spacing:.04em;">Mensualité</span>
+              {% endif %}
+            </div>
+            <div style="font-size:13.5px;font-weight:600;color:{% if fd.solde > 0 %}#e2e8f0{% else %}#4b5563{% endif %};">{{ fd.type_frais.libelle }}</div>
           </div>
 
-          <!-- Statut payé / solde -->
-          <div style="text-align:right;min-width:110px;">
-            {% if fd.paye > 0 %}
-            <div style="font-size:11px;color:#34d399;">Payé : {{ fd.paye|floatformat:0 }} FCFA</div>
-            {% endif %}
-            {% if fd.solde > 0 %}
-            <div style="font-size:12px;font-weight:700;color:#f87171;">Reste : {{ fd.solde|floatformat:0 }} FCFA</div>
+          <!-- Montant + statut -->
+          <div style="text-align:right;min-width:130px;flex-shrink:0;">
+            <div style="font-size:15px;font-weight:800;
+              {% if fd.solde == 0 %}color:#4b5563;
+              {% elif fd.paye > 0 %}color:#fbbf24;
+              {% else %}color:#f87171;{% endif %}">
+              {{ fd.frais.montant|floatformat:0 }} <span style="font-size:10px;font-weight:500;">FCFA</span>
+            </div>
+            {% if fd.solde == 0 %}
+            <div style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#34d399;">
+              <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+              Soldé
+            </div>
+            {% elif fd.paye > 0 %}
+            <div style="font-size:11px;color:#4b5563;">Payé : <span style="color:#34d399;font-weight:600;">{{ fd.paye|floatformat:0 }}</span> — Reste : <span style="color:#f87171;font-weight:600;">{{ fd.solde|floatformat:0 }}</span></div>
             {% else %}
-            <div style="font-size:11.5px;font-weight:600;color:#34d399;">Soldé</div>
+            <div style="font-size:11px;color:#4b5563;">Non payé</div>
             {% endif %}
           </div>
 
           <!-- Bouton encaisser individuel -->
           {% if fd.solde > 0 %}
-          <div x-data="{ open: false }">
+          <div x-data="{ open: false }" style="flex-shrink:0;">
             <button type="button" @click.stop="open = !open"
-                    style="padding:6px 12px;border-radius:8px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#818cf8;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;">
+                    style="padding:7px 14px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:white;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 3px 10px rgba(99,102,241,.3);">
               Encaisser
             </button>
-            <!-- Inline form -->
             <div x-show="open" x-cloak
-                 style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;" @click.self="open=false">
-              <div @click.stop style="background:#0e1422;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:24px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,.6);">
-                <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">{{ fd.type_frais.libelle }}</div>
-                <div style="font-size:12px;color:#374151;margin-bottom:18px;">Solde restant : {{ fd.solde|floatformat:0 }} FCFA</div>
-                <div style="margin-bottom:12px;">
+                 style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;display:flex;align-items:center;justify-content:center;" @click.self="open=false">
+              <div @click.stop style="background:#0e1422;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:26px;width:380px;box-shadow:0 24px 64px rgba(0,0,0,.7);">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+                  <div style="width:38px;height:38px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="color:#818cf8;">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style="font-size:14px;font-weight:700;color:#e2e8f0;">{{ fd.type_frais.libelle }}</div>
+                    <div style="font-size:11.5px;color:#4b5563;">Solde : <span style="color:#f87171;font-weight:600;">{{ fd.solde|floatformat:0 }} FCFA</span></div>
+                  </div>
+                </div>
+                <div style="margin-bottom:13px;">
                   <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;">Montant à encaisser (FCFA)</label>
                   <input type="number" id="montant_{{ fd.frais.id }}" name="montant_single_{{ fd.frais.id }}"
                          value="{{ fd.solde|floatformat:0 }}" min="1" max="{{ fd.solde }}" step="1"
-                         style="width:100%;padding:10px 13px;background:#080d16;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#f1f5f9;font-size:15px;outline:none;text-align:right;">
+                         style="width:100%;padding:11px 14px;background:#080d16;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#f1f5f9;font-size:18px;font-weight:700;outline:none;text-align:right;box-sizing:border-box;">
                 </div>
-                <div style="margin-bottom:16px;">
-                  <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;">Observation</label>
-                  <input type="text" id="obs_{{ fd.frais.id }}" placeholder="Optionnel"
-                         style="width:100%;padding:9px 13px;background:#080d16;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;">
+                <div style="margin-bottom:18px;">
+                  <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;">Observation <span style="color:#374151;font-weight:400;">(optionnel)</span></label>
+                  <input type="text" id="obs_{{ fd.frais.id }}" placeholder="Ex: paiement partiel"
+                         style="width:100%;padding:10px 14px;background:#080d16;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#f1f5f9;font-size:13px;outline:none;box-sizing:border-box;">
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                   <button type="button" @click="open=false"
-                          style="padding:9px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#64748b;cursor:pointer;font-size:13px;font-weight:600;">
+                          style="padding:11px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#64748b;cursor:pointer;font-size:13px;font-weight:600;">
                     Annuler
                   </button>
                   <button type="button"
@@ -228,8 +291,8 @@
                                   document.getElementById('montant_single').value=document.getElementById('montant_{{ fd.frais.id }}').value;
                                   document.getElementById('obs_single').value=document.getElementById('obs_{{ fd.frais.id }}').value;
                                   document.getElementById('form_single').submit();"
-                          style="padding:9px;border-radius:8px;background:linear-gradient(135deg,#10b981,#059669);border:none;color:white;cursor:pointer;font-size:13px;font-weight:700;">
-                    Valider
+                          style="padding:11px;border-radius:9px;background:linear-gradient(135deg,#10b981,#059669);border:none;color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(16,185,129,.3);">
+                    Valider le paiement
                   </button>
                 </div>
               </div>
@@ -238,7 +301,7 @@
           {% endif %}
         </div>
         {% empty %}
-        <div style="padding:30px;text-align:center;font-size:13px;color:#374151;">Aucun frais configuré pour cette classe.</div>
+        <div style="padding:40px;text-align:center;font-size:13px;color:#374151;">Aucun frais configuré pour cette classe.</div>
         {% endfor %}
       </div>
 

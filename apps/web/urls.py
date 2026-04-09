@@ -19,6 +19,7 @@ urlpatterns = [
     path('finances/validations/<int:demande_id>/traiter/', views.finances_valider, name='finances_valider'),
     path('inscription/', views.inscription_caissier, name='inscription_caissier'),
     path('inscription/<int:inscription_id>/valider/', views.inscription_valider, name='inscription_valider'),
+    path('inscriptions/', views.inscriptions_liste, name='inscriptions_liste'),
     path('notifications/', views.notifications_list, name='notifications_list'),
     path('notifications/<int:notif_id>/lu/', views.notification_marquer_lu, name='notification_marquer_lu'),
     path('finances/caisse/toggle/', views.caisse_toggle, name='caisse_toggle'),
